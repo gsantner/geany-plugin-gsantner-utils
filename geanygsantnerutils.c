@@ -15,7 +15,7 @@
 GeanyPlugin *geany_plugin;
 GeanyData *geany_data;
 PLUGIN_VERSION_CHECK(147)
-PLUGIN_SET_INFO("gsantner utils", "Description", "1.0", "Gregor Santner <gsantner@mailbox.org>")
+PLUGIN_SET_INFO("gsantner utils", "Favourites, json_reformat, vertical sidebar and various other improvements", "1.0", "Gregor Santner <gsantner@mailbox.org>")
 
 enum {
 	KEYBINDING_JSON_REFORMAT,
@@ -215,13 +215,15 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 		// Setup submenu
 		plugin_private.submenu_favourites = gtk_menu_new();
 		for (int i=0; (strarr[i] != NULL && strarr[i+1] != NULL); i+=2) {
-			GtkWidget* menuitem = NULL;
-			gchar *label = g_strreplace(strarr[i], "_", "__", 0); // First underscore is for keybinding and doesn't show up
+			// First underscore is for keybinding and doesn't show up
+			gchar *label = g_strreplace(g_strreplace(strarr[i], "_", "__", 0), ">>", "»", 1); 
+
 
 			// Create submenu item
-			if (g_str_equal(label, "---")) { /* Separator */ 
+			GtkWidget* menuitem = NULL;
+			if (g_str_equal(label, "---")) { // Separator
 				menuitem = gtk_separator_menu_item_new(); i--;
-			} else { /* Filepath */ 
+			} else { // Filepath
 				gchar *filepath = g_strreplace(strarr[i+1], "$HOME", dir_home, 0);
 				if (g_file_test(filepath, G_FILE_TEST_IS_REGULAR)) {
 					menuitem = ui_image_menu_item_new(NULL, _(label));
