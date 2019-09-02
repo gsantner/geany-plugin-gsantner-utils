@@ -8,14 +8,16 @@
 // License: Apache 2.0 / Commercial (Dual)
 //
 //######################################################################################################
+//
 // Notes: 
 //
 // while [ 1 -eq 1 ] ; do make install && geany -v && sleep 0.2; done
 // while [ 1 -eq 1 ] ; do make install && GTK_DEBUG=interactive geany -v && sleep 0.2; done
 //
 // msgwin_status_add ("[%s] AFTER C", label);
+//
 //######################################################################################################
-// vim: sw=4 ts=4 ft=sh noexpandtab:
+// vim: sw=4 ts=4 ft=c noexpandtab:
 
 
 // Includes
@@ -170,8 +172,8 @@ static void restyle_sidebar() {
 	GtkCssProvider *    cssProvider     = gtk_css_provider_new();
 	gtk_css_provider_load_from_data(cssProvider, ""
 		"*                       { background-color: #3A3D3F; } "
-		".myNotebook tab         { background-color: #3A3D3F; border-right-style: solid; border-color: #808000; border-bottom-width: 1px; border-right-width: 2px; border-bottom-right-radius: 7px; border-top-right-radius: 7px; border-left-width: 0px; }"
-		".myNotebook tab:checked { background-color: #AD8641; }"
+		".myNotebook tab         { background-color: #3A3D3F; border-right-style: solid; border-color: @theme_selected_bg_color; border-bottom-width: 1px; border-right-width: 2px; border-bottom-right-radius: 7px; border-top-right-radius: 7px; border-left-width: 0px; }"
+		".myNotebook tab:checked { background-color: @theme_selected_bg_color; }"
 		"*                       {  }"
 		, -1, NULL);
 
@@ -184,7 +186,7 @@ static void restyle_sidebar() {
 		gtk_label_set_angle(sidebarLabel, 90);
 
 		GString *text = g_string_new(gtk_label_get_text(sidebarLabel));
-		g_string_prepend(text, " <b><span font_desc='Monospace 10'>🔻");
+		g_string_prepend(text, " <b><span foreground='#ffffff' font_desc='Monospace 10'>🔸");
 		g_string_append(text, "</span></b>  ");
 		gtk_label_set_markup(sidebarLabel, g_string_free(text, FALSE));
 	}
