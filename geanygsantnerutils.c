@@ -275,6 +275,15 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 }
 
 
+// Switch to message window tab by setting
+// MSG_STATUS = 0, MSG_COMPILER = 1, MSG_MESSAGE = 2, MSG_SCRATCH = 3, MSG_VTE = 4
+void switch_to_message_window_tab(GKeyFile *config) {
+	int tab = utils_get_setting_integer(config, PLUGIN_NAME, "msgwin_tab", -1);
+	if (tab >= MSG_STATUS && tab <= MSG_VTE) {
+		msgwin_switch_tab(tab, FALSE);
+	}
+}
+
 
 //######################################################################################################
 
@@ -286,6 +295,9 @@ void plugin_init(GeanyData *geany_data) {
 
 	// Hide some clutter options from menus
 	unclutter_ui();
+
+	// Switch message window tab based on settings
+	switch_to_message_window_tab(config);
 
 	// Setup Keybindings
 	plugin_private.key_group = plugin_set_key_group(geany_plugin, PLUGIN_NAME, KEYBINDING_KEYS_COUNT, item_activated_by_keybinding_id);
