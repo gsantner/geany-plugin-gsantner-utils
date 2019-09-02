@@ -24,28 +24,28 @@
 
 
 // Plugin setup
-#define	PLUGIN_NAME	"geanygsantnerutils"
-GeanyPlugin *geany_plugin;
-GeanyData *geany_data;
+const char *PLUGIN_NAME = "geanygsantnerutils";
+GeanyPlugin *geany_plugin; // Init by macros
+GeanyData *geany_data;     // Init by macros
 PLUGIN_VERSION_CHECK(147)
 PLUGIN_SET_INFO("gsantner utils", "Favourites, json_reformat, vertical sidebar and various other improvements", "1.0", "Gregor Santner <gsantner@mailbox.org>")
 
-enum {
-	KEYBINDING_JSON_REFORMAT,
-	NUM_KEYS,
-	KEYBINDING_SHOW_FAVOURITES,
+enum SignalKeys {
+	KEY_JSON_REFORMAT,
+	KEYBINDING_KEYS_COUNT,
+	KEY_SHOW_FAVOURITES,
 };
-static struct {
+static struct plugin_private {
 	// json_reformat
-	GtkWidget	        *menuitem_json_reformat;   // tools menu option
+	GtkWidget           *menuitem_json_reformat;   // tools menu option
 
 	// Favourites
-	GtkWidget	        *menuitem_favourites;      // file menu option
-	GtkMenuToolButton	*toolbar_item_favourites;  // toolbar option
-	GtkWidget	        *menu_favorites;           // (sub)menu containing multiple GtkMenuItem's
+	GtkWidget           *menuitem_favourites;      // file menu option
+	GtkMenuToolButton   *toolbar_item_favourites;  // toolbar option
+	GtkWidget           *menu_favorites;           // (sub)menu containing multiple GtkMenuItem's
 
 	// Lists
-	GList   	         menuitem_list;            // dynamic allocated items that must be free'd
+	GList                menuitem_list;            // dynamic allocated items that must be free'd
 	GeanyKeyGroup       *key_group;                // Key bindings
 } plugin_private;
 
@@ -127,10 +127,10 @@ static void exec_json_reformat() {
 		sci_end_undo_action(sci);
 	} else if (exitc > 256) {
 		msgwin_switch_tab(MSG_MESSAGE, 1);
-		msgwin_msg_add(COLOR_RED, -1, doc, "[%s] json_reformat not installed. Contained in package yajl-tools", filename);
+		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] json_reformat not installed. Contained in package yajl-tools"), filename);
 	} else {
 		msgwin_switch_tab(MSG_MESSAGE, 1);
-		msgwin_msg_add(COLOR_RED, -1, doc, "[%s] json_reformat error, code %d. The content seems not to be valid JSON.", filename, exitc);
+		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] json_reformat error, code %d. The content seems not to be valid JSON."), filename, exitc);
 	}
 
 	// Free resources
@@ -151,10 +151,10 @@ static void item_activated_open_file_in_callback_arg(GtkWidget *wid, gpointer fi
 
 static gboolean item_activated_by_keybinding_id(guint keyid) {
 	switch(keyid) {
-	case KEYBINDING_JSON_REFORMAT:
+	case KEY_JSON_REFORMAT:
 		exec_json_reformat();
 		break;
-	case KEYBINDING_SHOW_FAVOURITES:
+	case KEY_SHOW_FAVOURITES:
 		gtk_menu_popup_at_pointer(GTK_MENU(gtk_menu_tool_button_get_menu(plugin_private.toolbar_item_favourites)), NULL);
 		break;
 	}
@@ -238,7 +238,7 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 			} else { // Filepath
 				gchar *filepath = g_strreplace(strarr[i+1], "$HOME", dir_home, 0);
 				if (g_file_test(filepath, G_FILE_TEST_IS_REGULAR) || g_str_has_prefix(filepath, "/tmp/")) {
-					menuitem = ui_image_menu_item_new(NULL, _(label));
+					menuitem = ui_image_menu_item_new(NULL, label);
 					g_signal_connect(G_OBJECT(menuitem), "activate", G_CALLBACK(item_activated_open_file_in_callback_arg), filepath);
 				}
 			}
@@ -253,19 +253,21 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 		}
 
 		// Show submenu - at menu
-		plugin_private.menuitem_favourites = ui_image_menu_item_new("gtk-about", "Favouriten");
+		plugin_private.menuitem_favourites = ui_image_menu_item_new("gtk-about", _("Fav"));
 		gtk_menu_item_set_submenu(GTK_MENU_ITEM(plugin_private.menuitem_favourites), plugin_private.menu_favorites);
 		gtk_widget_show_all(plugin_private.menu_favorites);
 		gtk_widget_show_all(plugin_private.menuitem_favourites);
 		gtk_menu_shell_insert(GTK_MENU_SHELL(file_menu), plugin_private.menuitem_favourites, 4);
 
 		// Show submenu - at toolbar
-		plugin_private.toolbar_item_favourites = GTK_MENU_TOOL_BUTTON(gtk_menu_tool_button_new(NULL, NULL));
+		plugin_private.toolbar_item_favourites = GTK_MENU_TOOL_BUTTON(gtk_menu_tool_button_new(NULL, _("Fav")));
 		gtk_tool_button_set_icon_name(GTK_TOOL_BUTTON(plugin_private.toolbar_item_favourites), "gtk-about");
 		gtk_menu_tool_button_set_menu(plugin_private.toolbar_item_favourites, plugin_private.menu_favorites);
 		gtk_toolbar_insert(GTK_TOOLBAR(geany_data->main_widgets->toolbar), GTK_TOOL_ITEM(plugin_private.toolbar_item_favourites), 1);
 		gtk_widget_show_all(GTK_WIDGET(plugin_private.toolbar_item_favourites));
-		g_signal_connect(G_OBJECT(plugin_private.toolbar_item_favourites), "clicked", G_CALLBACK(item_activated_by_id), GINT_TO_POINTER(KEYBINDING_SHOW_FAVOURITES));
+		g_signal_connect(G_OBJECT(plugin_private.toolbar_item_favourites), "clicked", G_CALLBACK(item_activated_by_id), GINT_TO_POINTER(KEY_SHOW_FAVOURITES));
+
+		free(strarr);
 	}
 	free(str);
 }
@@ -276,7 +278,7 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 
 // Init plugin
 void plugin_init(GeanyData *geany_data) {
-	GKeyFile *config   = geany_config();
+	GKeyFile *config         = geany_config();
 	const GtkMenu *file_menu = GTK_MENU(ui_lookup_widget(geany_data->main_widgets->window, "file1_menu"));
 	const gchar *dir_home    = g_get_home_dir();
 
@@ -284,14 +286,14 @@ void plugin_init(GeanyData *geany_data) {
 	unclutter_ui();
 
 	// Setup Keybindings
-	plugin_private.key_group = plugin_set_key_group(geany_plugin, PLUGIN_NAME, NUM_KEYS, item_activated_by_keybinding_id);
+	plugin_private.key_group = plugin_set_key_group(geany_plugin, PLUGIN_NAME, KEYBINDING_KEYS_COUNT, item_activated_by_keybinding_id);
 
 	// JSON Reformat
 	plugin_private.menuitem_json_reformat = ui_image_menu_item_new(NULL, _("json__reformat"));
-	g_signal_connect(G_OBJECT(plugin_private.menuitem_json_reformat), "activate", G_CALLBACK(item_activated_by_id), GINT_TO_POINTER(KEYBINDING_JSON_REFORMAT));
+	g_signal_connect(G_OBJECT(plugin_private.menuitem_json_reformat), "activate", G_CALLBACK(item_activated_by_id), GINT_TO_POINTER(KEY_JSON_REFORMAT));
 	gtk_widget_show_all(plugin_private.menuitem_json_reformat);
 	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_json_reformat);
-	keybindings_set_item(plugin_private.key_group, KEYBINDING_JSON_REFORMAT, NULL, 0, 0, "json_reformat", _("json_reformat"), plugin_private.menuitem_json_reformat);
+	keybindings_set_item(plugin_private.key_group, KEY_JSON_REFORMAT, NULL, 0, 0, "json_reformat", _("json_reformat"), plugin_private.menuitem_json_reformat);
 
 	// Restyle sidebar
 	restyle_sidebar();
@@ -319,14 +321,16 @@ void plugin_init(GeanyData *geany_data) {
 // gtk_widget_destroy includes free()
 void plugin_cleanup(void) {
 	GList *iterator = NULL;
-	gtk_widget_destroy(plugin_private.menuitem_json_reformat);
-	gtk_widget_destroy(plugin_private.menu_favorites);
-	gtk_widget_destroy(plugin_private.menuitem_favourites);
-	gtk_widget_destroy(GTK_WIDGET(plugin_private.toolbar_item_favourites));
+
+	if (GTK_IS_WIDGET(plugin_private.toolbar_item_favourites)) { 
+		gtk_menu_tool_button_set_menu(plugin_private.toolbar_item_favourites, NULL);
+		gtk_widget_destroy(GTK_WIDGET(plugin_private.toolbar_item_favourites)); 
+	}
+	if (GTK_IS_WIDGET(plugin_private.menuitem_json_reformat))  { gtk_widget_destroy(plugin_private.menuitem_json_reformat); }
+	if (GTK_IS_WIDGET(plugin_private.menu_favorites))          { gtk_widget_destroy(plugin_private.menu_favorites); }
+	if (GTK_IS_WIDGET(plugin_private.menuitem_favourites))     { gtk_widget_destroy(plugin_private.menuitem_favourites); }
 
 	for (iterator = &(plugin_private.menuitem_list); iterator; iterator = iterator->next) {
-		if (GTK_IS_WIDGET(iterator->data)) {
-			gtk_widget_destroy(iterator->data);
-		}
+		if (GTK_IS_WIDGET(iterator->data)) { gtk_widget_destroy(iterator->data); }
 	}
 }

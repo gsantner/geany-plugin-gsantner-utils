@@ -1,5 +1,5 @@
 ## Geany Plugin: gsantner utils
-A [Geany](http://geany.org) plugin with various improvments and utilies.
+A [Geany](http://geany.org) plugin with various utilies and improvements to general Geany usage.
 
 
 ### Features
@@ -50,6 +50,7 @@ while [ 1 -eq 1 ] ; do make install && geany -v && sleep 0.2; done
 * geany reference - https://www.geany.org/manual/reference/
 * gtk reference - https://developer.gnome.org/gtk3/stable/
 * glib reference - https://developer.gnome.org/glib/2.60/
+* geany source code - https://github.com/geany/geany
 * geany glade - https://github.com/geany/geany/blob/master/data/geany.glade
 * geany manual - https://www.geany.org/manual/dev/index.html
 
