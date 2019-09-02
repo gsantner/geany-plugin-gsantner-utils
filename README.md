@@ -1,13 +1,16 @@
 ## Geany Plugin: gsantner utils
 A [Geany](http://geany.org) plugin with various improvments and utilies.
 
+
 ### Features
+![screenrecord](https://user-images.githubusercontent.com/6735650/64099809-bab94c00-cd59-11e9-9ba2-eb74c3dd912f.gif)
+
 * json_reformat (Tools menu option)
   * Reformat & reindent the JSON content of the file currently open in editor
 * Favourites (File menu option, Toolbar option)
   * You very often open the same files and keep browsing for it? Than that's what you need!
   * Adds a easy accessible option for global favourites
-  * Indipendent to projects, recent files & currently open files
+  * Independent to projects, recent files & currently open files
   * Configuration in `geany.conf`, `geanygsantnerutils` group, `favourites` key
     * Semicolon separated list: `TITLE;FILEPATH`. 
     * TITLE: `---` adds a separator (no FILEPATH required). `>>` is replaced by `»`.
