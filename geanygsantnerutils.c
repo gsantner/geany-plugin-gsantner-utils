@@ -37,11 +37,11 @@ enum {
 };
 static struct {
 	// json_reformat
-	GtkWidget	        *menuitem_json_reformat;
+	GtkWidget	        *menuitem_json_reformat;   // tools menu option
 
 	// Favourites
-	GtkWidget	        *menuitem_favourites;
-	GtkMenuToolButton	*toolbar_item_favourites;
+	GtkWidget	        *menuitem_favourites;      // file menu option
+	GtkMenuToolButton	*toolbar_item_favourites;  // toolbar option
 	GtkWidget	        *menu_favorites;           // (sub)menu containing multiple GtkMenuItem's
 
 	// Lists
@@ -143,6 +143,9 @@ static void exec_json_reformat() {
 //######################################################################################################
 
 static void item_activated_open_file_in_callback_arg(GtkWidget *wid, gpointer filepath) {
+	if (!g_file_test(filepath, G_FILE_TEST_IS_REGULAR) && g_str_has_prefix(filepath, "/tmp/")) {
+		utils_write_file(filepath, "");
+	}
     document_open_file(filepath, 0, NULL, NULL);
 }
 
@@ -228,14 +231,13 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 			// First underscore is for keybinding and doesn't show up
 			gchar *label = g_strreplace(g_strreplace(strarr[i], "_", "__", 0), ">>", "»", 1); 
 
-
 			// Create submenu item
 			GtkWidget* menuitem = NULL;
 			if (g_str_equal(label, "---")) { // Separator
 				menuitem = gtk_separator_menu_item_new(); i--;
 			} else { // Filepath
 				gchar *filepath = g_strreplace(strarr[i+1], "$HOME", dir_home, 0);
-				if (g_file_test(filepath, G_FILE_TEST_IS_REGULAR)) {
+				if (g_file_test(filepath, G_FILE_TEST_IS_REGULAR) || g_str_has_prefix(filepath, "/tmp/")) {
 					menuitem = ui_image_menu_item_new(NULL, _(label));
 					g_signal_connect(G_OBJECT(menuitem), "activate", G_CALLBACK(item_activated_open_file_in_callback_arg), filepath);
 				}
