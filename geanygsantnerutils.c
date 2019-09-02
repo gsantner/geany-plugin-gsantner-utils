@@ -1,8 +1,21 @@
 //######################################################################################################
-// vim: sw=4 ts=4 ft=sh noexpandtab:
-// while [ 1 -eq 1 ] ; do make install && geany -v && sleep 0.1; done
+//
+// > geanyplugingsantnerutils: Plugin for Geany editor (https://github.com/geany/geany)
+//
+// Maintained by Gregor Santner, 2019-
+// https://gsantner.net/
+//
+// License: Apache 2.0 / Commercial (Dual)
+//
+//######################################################################################################
+// Notes: 
+//
+// while [ 1 -eq 1 ] ; do make install && geany -v && sleep 0.2; done
+// while [ 1 -eq 1 ] ; do make install && GTK_DEBUG=interactive geany -v && sleep 0.2; done
+//
 // msgwin_status_add ("[%s] AFTER C", label);
 //######################################################################################################
+// vim: sw=4 ts=4 ft=sh noexpandtab:
 
 
 // Includes
@@ -24,18 +37,16 @@ enum {
 };
 static struct {
 	// json_reformat
-	GtkWidget	*menuitem_json_reformat;
-
-	// MenuItems with file references
-	GList   	menuitem_list_open_file_in_callback_arg;
+	GtkWidget	        *menuitem_json_reformat;
 
 	// Favourites
-	GtkWidget	*menuitem_favourites;
-	GtkWidget	*toolbar_item_favourites;
-	GtkWidget	*submenu_favourites;
+	GtkWidget	        *menuitem_favourites;
+	GtkMenuToolButton	*toolbar_item_favourites;
+	GtkWidget	        *menu_favorites;           // (sub)menu containing multiple GtkMenuItem's
 
-
-	GeanyKeyGroup	*key_group;
+	// Lists
+	GList   	         menuitem_list;            // dynamic allocated items that must be free'd
+	GeanyKeyGroup       *key_group;                // Key bindings
 } plugin_private;
 
 //######################################################################################################
@@ -177,9 +188,7 @@ static void restyle_sidebar() {
 }
 
 // Hide some clutter options from menus
-static void hide_clutter() {
-	GtkToolbar *toolbar = GTK_TOOLBAR(geany_data->main_widgets->toolbar);
-
+static void unclutter_ui() {
 	gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_open_selected_file1"));
 	gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_reload_as1"));
 	gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_close_all1"));
@@ -187,6 +196,7 @@ static void hide_clutter() {
 	gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_reload_as1"));
 
 	/* // Can be configured by settings with drag'n'drop
+	GtkToolbar *toolbar = GTK_TOOLBAR(geany_data->main_widgets->toolbar);
 	for (int i=0; i <  gtk_toolbar_get_n_items(toolbar); i++) {
 		GtkToolItem *item = gtk_toolbar_get_nth_item(toolbar, i);
 		switch (i) {
@@ -213,7 +223,7 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 		strarr = g_strsplit(str, ";", -1);
 
 		// Setup submenu
-		plugin_private.submenu_favourites = gtk_menu_new();
+		plugin_private.menu_favorites = gtk_menu_new();
 		for (int i=0; (strarr[i] != NULL && strarr[i+1] != NULL); i+=2) {
 			// First underscore is for keybinding and doesn't show up
 			gchar *label = g_strreplace(g_strreplace(strarr[i], "_", "__", 0), ">>", "»", 1); 
@@ -233,27 +243,27 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 
 			// Add item to submenu
 			if (menuitem != NULL) {
-				gtk_menu_shell_append(GTK_MENU_SHELL(plugin_private.submenu_favourites), menuitem);
+				gtk_menu_shell_append(GTK_MENU_SHELL(plugin_private.menu_favorites), menuitem);
 				gtk_widget_show_all(menuitem);
 				#pragma GCC diagnostic ignored "-Wunused-result"
-				g_list_append(&plugin_private.menuitem_list_open_file_in_callback_arg, menuitem);
+				g_list_append(&plugin_private.menuitem_list, menuitem);
 			}
 		}
 
 		// Show submenu - at menu
 		plugin_private.menuitem_favourites = ui_image_menu_item_new("gtk-about", "Favouriten");
-		gtk_menu_item_set_submenu(GTK_MENU_ITEM(plugin_private.menuitem_favourites), plugin_private.submenu_favourites);
-		gtk_widget_show_all(plugin_private.submenu_favourites);
+		gtk_menu_item_set_submenu(GTK_MENU_ITEM(plugin_private.menuitem_favourites), plugin_private.menu_favorites);
+		gtk_widget_show_all(plugin_private.menu_favorites);
 		gtk_widget_show_all(plugin_private.menuitem_favourites);
 		gtk_menu_shell_insert(GTK_MENU_SHELL(file_menu), plugin_private.menuitem_favourites, 4);
 
 		// Show submenu - at toolbar
-		plugin_private.toolbar_item_favourites = gtk_menu_tool_button_new(NULL, NULL);
-		gtk_tool_button_set_icon_name(plugin_private.toolbar_item_favourites, "gtk-about");
-		gtk_menu_tool_button_set_menu(plugin_private.toolbar_item_favourites, plugin_private.submenu_favourites);
-		gtk_toolbar_insert(GTK_TOOLBAR(geany_data->main_widgets->toolbar), plugin_private.toolbar_item_favourites, 1);
-		gtk_widget_show_all(plugin_private.toolbar_item_favourites);
-		g_signal_connect(G_OBJECT(plugin_private.toolbar_item_favourites), "clicked", G_CALLBACK(item_activated_by_id), GPOINTER_TO_INT(KEYBINDING_SHOW_FAVOURITES));
+		plugin_private.toolbar_item_favourites = GTK_MENU_TOOL_BUTTON(gtk_menu_tool_button_new(NULL, NULL));
+		gtk_tool_button_set_icon_name(GTK_TOOL_BUTTON(plugin_private.toolbar_item_favourites), "gtk-about");
+		gtk_menu_tool_button_set_menu(plugin_private.toolbar_item_favourites, plugin_private.menu_favorites);
+		gtk_toolbar_insert(GTK_TOOLBAR(geany_data->main_widgets->toolbar), GTK_TOOL_ITEM(plugin_private.toolbar_item_favourites), 1);
+		gtk_widget_show_all(GTK_WIDGET(plugin_private.toolbar_item_favourites));
+		g_signal_connect(G_OBJECT(plugin_private.toolbar_item_favourites), "clicked", G_CALLBACK(item_activated_by_id), GINT_TO_POINTER(KEYBINDING_SHOW_FAVOURITES));
 	}
 	free(str);
 }
@@ -269,14 +279,14 @@ void plugin_init(GeanyData *geany_data) {
 	const gchar *dir_home    = g_get_home_dir();
 
 	// Hide some clutter options from menus
-	hide_clutter();
+	unclutter_ui();
 
 	// Setup Keybindings
 	plugin_private.key_group = plugin_set_key_group(geany_plugin, PLUGIN_NAME, NUM_KEYS, item_activated_by_keybinding_id);
 
 	// JSON Reformat
 	plugin_private.menuitem_json_reformat = ui_image_menu_item_new(NULL, _("json__reformat"));
-	g_signal_connect(G_OBJECT(plugin_private.menuitem_json_reformat), "activate", G_CALLBACK(item_activated_by_id), GINT_TO_POINTER(TRUE));
+	g_signal_connect(G_OBJECT(plugin_private.menuitem_json_reformat), "activate", G_CALLBACK(item_activated_by_id), GINT_TO_POINTER(KEYBINDING_JSON_REFORMAT));
 	gtk_widget_show_all(plugin_private.menuitem_json_reformat);
 	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_json_reformat);
 	keybindings_set_item(plugin_private.key_group, KEYBINDING_JSON_REFORMAT, NULL, 0, 0, "json_reformat", _("json_reformat"), plugin_private.menuitem_json_reformat);
@@ -288,11 +298,8 @@ void plugin_init(GeanyData *geany_data) {
 	add_favourites_to_menu(dir_home, config, file_menu);
 
 
-
 /////
 	// Testing code
-	//gtk_label_set_angle(ui_lookup_widget(geany_data->main_widgets->window, "label135"), 90);
-	//gtk_label_set_angle(ui_lookup_widget(geany_data->main_widgets->window, "label136"), 90);
 	//gtk_label_set_angle(ui_lookup_widget(geany_data->main_widgets->window, "label137"), 90);
 
 	//utils_get_setting_string(config, PLUGIN_NAME, "color_scheme", "aaa-solarized-greg.conf");
@@ -311,10 +318,11 @@ void plugin_init(GeanyData *geany_data) {
 void plugin_cleanup(void) {
 	GList *iterator = NULL;
 	gtk_widget_destroy(plugin_private.menuitem_json_reformat);
-	gtk_widget_destroy(plugin_private.submenu_favourites);
+	gtk_widget_destroy(plugin_private.menu_favorites);
 	gtk_widget_destroy(plugin_private.menuitem_favourites);
+	gtk_widget_destroy(GTK_WIDGET(plugin_private.toolbar_item_favourites));
 
-	for (iterator = &(plugin_private.menuitem_list_open_file_in_callback_arg); iterator; iterator = iterator->next) {
+	for (iterator = &(plugin_private.menuitem_list); iterator; iterator = iterator->next) {
 		if (GTK_IS_WIDGET(iterator->data)) {
 			gtk_widget_destroy(iterator->data);
 		}
