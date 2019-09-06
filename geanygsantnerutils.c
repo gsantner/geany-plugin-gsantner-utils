@@ -284,6 +284,17 @@ void switch_to_message_window_tab(GKeyFile *config) {
 	}
 }
 
+// Markdown filetype format doesn't have any HTML highlighting, switch to HTML for mdml by default
+static void switch_to_html_for_markdown_files(GeanyDocument *doc) {
+	if (doc != NULL && doc->file_type != NULL && doc->file_type->extension != NULL && utils_str_equal(doc->file_type->extension, "mdml")) {
+		GeanyFiletype *htmlType;
+		if ((htmlType = filetypes_detect_from_file("f.html")) != NULL) {
+			document_set_filetype(doc, htmlType);
+		}
+	}
+}
+
+// Callback: New document opened in Geany
 static void on_document_new(GObject *obj, GeanyDocument *doc, gpointer user_data) {
 	ScintillaObject	*sci;
 	if((sci = doc->editor->sci) == NULL) {
@@ -293,6 +304,12 @@ static void on_document_new(GObject *obj, GeanyDocument *doc, gpointer user_data
 	// Geany by default doesn't focus editor for new files, hence user needs to click before typing is possible
 	// -> Focus editor and set carret to pos 0 for new documents
 	gtk_widget_grab_focus(GTK_WIDGET(sci));
+	switch_to_html_for_markdown_files(doc);
+}
+
+// Callback: Existing document opened in Geany (not called for new file)
+static void on_document_open(GObject *obj, GeanyDocument *doc, gpointer user_data) {
+	switch_to_html_for_markdown_files(doc);
 }
 
 
@@ -307,6 +324,7 @@ void plugin_init(GeanyData *geany_data) {
 
 	// Register callbacks
 	plugin_signal_connect(geany_plugin, NULL, "document-new", TRUE, (GCallback) &on_document_new, NULL);
+	plugin_signal_connect(geany_plugin, NULL, "document-open", TRUE, (GCallback) &on_document_open, NULL);
 
 	// Hide some clutter options from menus
 	unclutter_ui();
