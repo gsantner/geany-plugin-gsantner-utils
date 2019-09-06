@@ -284,6 +284,18 @@ void switch_to_message_window_tab(GKeyFile *config) {
 	}
 }
 
+static void on_document_new(GObject *obj, GeanyDocument *doc, gpointer user_data) {
+	ScintillaObject	*sci;
+	if((sci = doc->editor->sci) == NULL) {
+		return;
+	}
+
+	// Geany by default doesn't focus editor for new files, hence user needs to click before typing is possible
+	// -> Focus editor and set carret to pos 0 for new documents
+	gtk_widget_grab_focus(GTK_WIDGET(sci));
+}
+
+
 
 //######################################################################################################
 
@@ -292,6 +304,9 @@ void plugin_init(GeanyData *geany_data) {
 	GKeyFile *config         = geany_config();
 	const GtkMenu *file_menu = GTK_MENU(ui_lookup_widget(geany_data->main_widgets->window, "file1_menu"));
 	const gchar *dir_home    = g_get_home_dir();
+
+	// Register callbacks
+	plugin_signal_connect(geany_plugin, NULL, "document-new", TRUE, (GCallback) &on_document_new, NULL);
 
 	// Hide some clutter options from menus
 	unclutter_ui();
