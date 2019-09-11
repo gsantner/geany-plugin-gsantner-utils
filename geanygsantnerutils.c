@@ -208,11 +208,11 @@ static void restyle_sidebar(GKeyFile* config) {
 	// Toolbar: Add placeholder texts to Search/Line jump entry fields
 	for (int i=0; i < gtk_toolbar_get_n_items(toolbar); i++) {
 		GtkToolItem *item = gtk_toolbar_get_nth_item(toolbar, i);
-		GtkBin *child = gtk_bin_get_child(GTK_BIN(item));
-		if (GTK_IS_ENTRY(child) && g_str_equal(gtk_widget_get_name(item), "SearchEntry")) {
+		GtkWidget *child = GTK_WIDGET(gtk_bin_get_child(GTK_BIN(item)));
+		const gchar *itemName = gtk_widget_get_name(GTK_WIDGET(item));
+		if (g_str_equal(itemName, "SearchEntry")) {
 			gtk_entry_set_placeholder_text(GTK_ENTRY(child), _("Search…"));
-		}
-		if (GTK_IS_ENTRY(child) && g_str_equal(gtk_widget_get_name(item), "GotoEntry")) {
+		} else if (g_str_equal(itemName, "GotoEntry")) {
 			gtk_entry_set_placeholder_text(GTK_ENTRY(child), _("L#"));
 		}
 	}
