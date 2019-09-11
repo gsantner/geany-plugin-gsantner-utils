@@ -175,32 +175,33 @@ static void item_activated_by_id(GtkWidget *wid, gpointer eventdata) {
 static void restyle_sidebar(GKeyFile* config) {
 	GtkToolbar *toolbar = GTK_TOOLBAR(geany_data->main_widgets->toolbar);
 	GtkNotebook *sidebarNotebook = GTK_NOTEBOOK(ui_lookup_widget(geany_data->main_widgets->window, "notebook3"));
-	GtkCssProvider *cssProvider = gtk_css_provider_new();
+	GtkCssProvider *cssProvider;
+	GtkStyleContext * cssContext = gtk_widget_get_style_context(GTK_WIDGET(sidebarNotebook));
 
-	// Restyle sidebar and it's children
-	gtk_css_provider_load_from_data(cssProvider, ""
+
+	// Restyle sidebar
+	gtk_css_provider_load_from_data((cssProvider = gtk_css_provider_new()), ""
 		"*                       { background-color: #3A3D3F; } "
-		".myNotebook tab         { background-color: #3A3D3F; border-right-style: solid; border-color: @theme_selected_bg_color; border-bottom-width: 1px; border-right-width: 2px; border-bottom-right-radius: 7px; border-top-right-radius: 7px; border-left-width: 0px; }"
+		".myNotebook tab         { background-color: #3A3D3F; border-right-style: solid; border-color: @theme_selected_bg_color; border-bottom-width: 1px; border-right-width: 1px; border-bottom-right-radius: 9px; border-top-right-radius: 9px; border-left-width: 0px; border-bottom-style: solid; margin-right: 3px; }"
 		".myNotebook tab:checked { background-color: @theme_selected_bg_color; }"
 		"*                       {  }"
 		, -1, NULL);
+	gtk_style_context_add_class(cssContext, "myNotebook");
+	gtk_style_context_add_provider(cssContext, GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
 
-	GtkStyleContext * sidebarNotebookStyleContext = gtk_widget_get_style_context(GTK_WIDGET(sidebarNotebook));
-	gtk_style_context_add_class(sidebarNotebookStyleContext, "myNotebook");
-	gtk_style_context_add_provider(sidebarNotebookStyleContext, GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+	// Restyle sidebar tab labels
+	gtk_css_provider_load_from_data((cssProvider = gtk_css_provider_new()), "* { color: @menu_fg_color; font-family: Monospace; font-size: 16px; font-weight: bold; }", -1, NULL);
 	for (GList *iterator = gtk_container_get_children(GTK_CONTAINER(sidebarNotebook)); iterator; iterator = iterator->next) {
 		GtkLabel *sidebarLabel = GTK_LABEL(gtk_notebook_get_tab_label(sidebarNotebook, iterator->data));
 		gtk_label_set_angle(sidebarLabel, 90);
-
-		GString *text = g_string_new(gtk_label_get_text(sidebarLabel));
-		g_string_prepend(text, " <b><span foreground='#ffffff' font_desc='Monospace 10'>🔸");
-		g_string_append(text, "</span></b>  ");
-		gtk_label_set_markup(sidebarLabel, g_string_free(text, FALSE));
+		cssContext = gtk_widget_get_style_context(GTK_WIDGET(sidebarLabel));
+		gtk_style_context_add_provider(cssContext, GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
 	}
 
 	// Make toolbar same coolor like menubar - when using setting option to combine both
 	if (utils_get_setting_boolean(config, "geany", "pref_toolbar_append_to_menu", FALSE)) {
-		gtk_css_provider_load_from_data(cssProvider, "* { background-color: @menu_bg_color; }", -1, NULL);
+		gtk_css_provider_load_from_data((cssProvider = gtk_css_provider_new()), "* { background-color: @menu_bg_color; }", -1, NULL);
 		GtkStyleContext *toolbarStyleContext = gtk_widget_get_style_context(GTK_WIDGET(toolbar));
 		gtk_style_context_add_provider(toolbarStyleContext, GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
 	}
