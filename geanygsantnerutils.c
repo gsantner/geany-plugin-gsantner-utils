@@ -321,6 +321,20 @@ static void switch_to_html_for_markdown_files(GeanyDocument *doc) {
 	}
 }
 
+// Hide menu options based on filetype
+static void unclutter_based_on_current_filetype(GeanyDocument *doc) {
+	if (doc != NULL && doc->file_type != NULL && doc->file_type->extension != NULL) {
+		//msgwin_status_add ("[%s] Opened window with file type (doc->file_type->extension)", doc->file_type->extension);
+
+		// C / C++ File
+		gboolean lang_c = (utils_str_equal(doc->file_type->extension, "c") || utils_str_equal(doc->file_type->extension, "cpp"));
+
+
+		// Add #include -> Only show at C / C++ ..anyway disabled in other langs
+		gtk_widget_set_visible(ui_lookup_widget(geany_data->main_widgets->window, "insert_include2"), lang_c);
+	}
+}
+
 // Callback: New document opened in Geany
 static void on_document_new(GObject *obj, GeanyDocument *doc, gpointer user_data) {
 	ScintillaObject	*sci;
@@ -332,11 +346,17 @@ static void on_document_new(GObject *obj, GeanyDocument *doc, gpointer user_data
 	// -> Focus editor and set carret to pos 0 for new documents
 	gtk_widget_grab_focus(GTK_WIDGET(sci));
 	switch_to_html_for_markdown_files(doc);
+	unclutter_based_on_current_filetype(doc);
 }
 
 // Callback: Existing document opened in Geany (not called for new file)
 static void on_document_open(GObject *obj, GeanyDocument *doc, gpointer user_data) {
 	switch_to_html_for_markdown_files(doc);
+}
+
+
+static void on_document_shown(GObject *obj, GeanyDocument *doc, gpointer user_data) {
+	unclutter_based_on_current_filetype(doc);
 }
 
 
@@ -351,8 +371,9 @@ void plugin_init(GeanyData *geany_data) {
 	const gchar *dir_home    = g_get_home_dir();
 
 	// Register callbacks
-	plugin_signal_connect(geany_plugin, NULL, "document-new", TRUE, (GCallback) &on_document_new, NULL);
-	plugin_signal_connect(geany_plugin, NULL, "document-open", TRUE, (GCallback) &on_document_open, NULL);
+	plugin_signal_connect(geany_plugin, NULL, "document-new",      TRUE, (GCallback) &on_document_new,   NULL);
+	plugin_signal_connect(geany_plugin, NULL, "document-open",     TRUE, (GCallback) &on_document_open,  NULL);
+	plugin_signal_connect(geany_plugin, NULL, "document-activate", TRUE, (GCallback) &on_document_shown, NULL);
 
 	// Hide some clutter options from menus
 	unclutter_ui();
