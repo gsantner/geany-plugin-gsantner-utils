@@ -74,3 +74,4 @@ Thumbs.db
 build/
 appInst
 AppInst
+*.mo

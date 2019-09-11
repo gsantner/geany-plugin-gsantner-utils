@@ -23,6 +23,9 @@
 // Includes
 #include "geanyplugin.h"
 #include <stdio.h>
+#ifdef HAVE_LOCALE_H
+	#include <locale.h>
+#endif
 
 
 // Plugin setup
@@ -168,8 +171,13 @@ static void item_activated_by_id(GtkWidget *wid, gpointer eventdata) {
 }
 
 // Restyle the sidebar (containing "symbols" "files" "projects" etc)
-static void restyle_sidebar() {
-	GtkCssProvider *    cssProvider     = gtk_css_provider_new();
+// Do not free(cssProvider)
+static void restyle_sidebar(GKeyFile* config) {
+	GtkToolbar *toolbar = GTK_TOOLBAR(geany_data->main_widgets->toolbar);
+	GtkNotebook *sidebarNotebook = GTK_NOTEBOOK(ui_lookup_widget(geany_data->main_widgets->window, "notebook3"));
+	GtkCssProvider *cssProvider = gtk_css_provider_new();
+
+	// Restyle sidebar and it's children
 	gtk_css_provider_load_from_data(cssProvider, ""
 		"*                       { background-color: #3A3D3F; } "
 		".myNotebook tab         { background-color: #3A3D3F; border-right-style: solid; border-color: @theme_selected_bg_color; border-bottom-width: 1px; border-right-width: 2px; border-bottom-right-radius: 7px; border-top-right-radius: 7px; border-left-width: 0px; }"
@@ -177,10 +185,9 @@ static void restyle_sidebar() {
 		"*                       {  }"
 		, -1, NULL);
 
-	GtkNotebook *sidebarNotebook = GTK_NOTEBOOK(ui_lookup_widget(geany_data->main_widgets->window, "notebook3"));
 	GtkStyleContext * sidebarNotebookStyleContext = gtk_widget_get_style_context(GTK_WIDGET(sidebarNotebook));
 	gtk_style_context_add_class(sidebarNotebookStyleContext, "myNotebook");
-	gtk_style_context_add_provider(gtk_widget_get_style_context(GTK_WIDGET(sidebarNotebook)), GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
+	gtk_style_context_add_provider(sidebarNotebookStyleContext, GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
 	for (GList *iterator = gtk_container_get_children(GTK_CONTAINER(sidebarNotebook)); iterator; iterator = iterator->next) {
 		GtkLabel *sidebarLabel = GTK_LABEL(gtk_notebook_get_tab_label(sidebarNotebook, iterator->data));
 		gtk_label_set_angle(sidebarLabel, 90);
@@ -189,6 +196,25 @@ static void restyle_sidebar() {
 		g_string_prepend(text, " <b><span foreground='#ffffff' font_desc='Monospace 10'>🔸");
 		g_string_append(text, "</span></b>  ");
 		gtk_label_set_markup(sidebarLabel, g_string_free(text, FALSE));
+	}
+
+	// Make toolbar same coolor like menubar - when using setting option to combine both
+	if (utils_get_setting_boolean(config, "geany", "pref_toolbar_append_to_menu", FALSE)) {
+		gtk_css_provider_load_from_data(cssProvider, "* { background-color: @menu_bg_color; }", -1, NULL);
+		GtkStyleContext *toolbarStyleContext = gtk_widget_get_style_context(GTK_WIDGET(toolbar));
+		gtk_style_context_add_provider(toolbarStyleContext, GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
+	}
+
+	// Toolbar: Add placeholder texts to Search/Line jump entry fields
+	for (int i=0; i < gtk_toolbar_get_n_items(toolbar); i++) {
+		GtkToolItem *item = gtk_toolbar_get_nth_item(toolbar, i);
+		GtkBin *child = gtk_bin_get_child(GTK_BIN(item));
+		if (GTK_IS_ENTRY(child) && g_str_equal(gtk_widget_get_name(item), "SearchEntry")) {
+			gtk_entry_set_placeholder_text(GTK_ENTRY(child), _("Search…"));
+		}
+		if (GTK_IS_ENTRY(child) && g_str_equal(gtk_widget_get_name(item), "GotoEntry")) {
+			gtk_entry_set_placeholder_text(GTK_ENTRY(child), _("L#"));
+		}
 	}
 }
 
@@ -318,6 +344,7 @@ static void on_document_open(GObject *obj, GeanyDocument *doc, gpointer user_dat
 
 // Init plugin
 void plugin_init(GeanyData *geany_data) {
+    main_locale_init(LOCALEDIR, GETTEXT_PACKAGE);
 	GKeyFile *config         = geany_config();
 	const GtkMenu *file_menu = GTK_MENU(ui_lookup_widget(geany_data->main_widgets->window, "file1_menu"));
 	const gchar *dir_home    = g_get_home_dir();
@@ -343,7 +370,7 @@ void plugin_init(GeanyData *geany_data) {
 	keybindings_set_item(plugin_private.key_group, KEY_JSON_REFORMAT, NULL, 0, 0, "json_reformat", _("json_reformat"), plugin_private.menuitem_json_reformat);
 
 	// Restyle sidebar
-	restyle_sidebar();
+	restyle_sidebar(config);
 
 	// Add favourites to the file menu
 	add_favourites_to_menu(dir_home, config, file_menu);

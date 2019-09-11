@@ -1,6 +1,6 @@
 BASENAME=geanygsantnerutils
 
-CFLAGS=`pkg-config --cflags geany` -fPIC -Wall -pedantic -O3
+CFLAGS=`pkg-config --cflags geany` -fPIC -Wall -pedantic -O3 -DLOCALEDIR=\"\" -DGETTEXT_PACKAGE=\"geany-gsantnerutils\"
 LDLIBS=`pkg-config --libs geany`
 
 PLUGINDIR=`pkg-config --variable=libdir geany`/geany
@@ -22,6 +22,7 @@ rebuild: clean build
 
 build:
 	@echo "\nBuild..."
+#	$(MAKE) po/$(BASENAME)-de.mo
 	$(MAKE) $(BASENAME).so
 
 clean:
@@ -39,3 +40,18 @@ install-link: build
 	@echo "\nInstall (link)..."
 	sudo rm -f $(PLUGINDIR)/$(BASENAME).so
 	sudo ln -s `pwd`/$(BASENAME).so $(PLUGINDIR)
+
+######################################################################################################
+# Translation
+
+po/$(BASENAME)-de.mo: po/$(BASENAME)-de.po
+	msgfmt --output-file=$@ $<
+
+po/$(BASENAME)-de.po: po/$(BASENAME).pot
+	msginit --input=po/$(BASENAME).pot --locale=de --output=po/$(BASENAME)-de.po
+	msgmerge --update $@ $<
+
+po/$(BASENAME).pot: $(BASENAME).c
+	xgettext --keyword=_ --language=C --from-code=UTF-8 --add-comments --sort-output -o po/$(BASENAME).pot $(BASENAME).c
+
+######################################################################################################
