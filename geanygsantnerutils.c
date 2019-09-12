@@ -29,6 +29,7 @@
 
 
 // Plugin setup
+const gboolean DEBUG_DOCOPEN_MSGWIN = FALSE;
 const char *PLUGIN_NAME = "geanygsantnerutils";
 GeanyPlugin *geany_plugin; // Init by macros
 GeanyData *geany_data;     // Init by macros
@@ -55,6 +56,14 @@ static struct plugin_private {
 } plugin_private;
 
 //######################################################################################################
+
+static void debug_doc_info_to_msgwin(GeanyDocument *doc, const char *eventname) {
+	if (!DEBUG_DOCOPEN_MSGWIN || doc == NULL) {
+		return;
+	}
+	const char *ft_ext = (doc->file_type != NULL && doc->file_type->extension != NULL) ? doc->file_type->extension : "NULL";
+	msgwin_status_add ("[DEBUG/debug_doc_info_to_msgwin]: %s ft_ext >%s<)", eventname, ft_ext);
+}
 
 // Frees input string
 static gchar* g_strreplace(gchar *text, const gchar *search, const gchar *replace, gboolean free_input) {
@@ -147,14 +156,14 @@ static void exec_json_reformat() {
 
 //######################################################################################################
 
-static void item_activated_open_file_in_callback_arg(GtkWidget *wid, gpointer filepath) {
+static void on_item_activated_open_file_in_callback_arg(GtkWidget *wid, gpointer filepath) {
 	if (!g_file_test(filepath, G_FILE_TEST_IS_REGULAR) && g_str_has_prefix(filepath, "/tmp/")) {
 		utils_write_file(filepath, "");
 	}
     document_open_file(filepath, 0, NULL, NULL);
 }
 
-static gboolean item_activated_by_keybinding_id(guint keyid) {
+static gboolean on_item_activated_by_keybinding_id(guint keyid) {
 	switch(keyid) {
 	case KEY_JSON_REFORMAT:
 		exec_json_reformat();
@@ -166,8 +175,8 @@ static gboolean item_activated_by_keybinding_id(guint keyid) {
 	return 0;
 }
 // Menu item activated by ID. Forward to keybinding handler
-static void item_activated_by_id(GtkWidget *wid, gpointer eventdata) {
-	item_activated_by_keybinding_id(GPOINTER_TO_INT(eventdata));
+static void on_item_activated_by_id(GtkWidget *wid, gpointer eventdata) {
+	on_item_activated_by_keybinding_id(GPOINTER_TO_INT(eventdata));
 }
 
 // Restyle the sidebar (containing "symbols" "files" "projects" etc)
@@ -268,7 +277,7 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 				gchar *filepath = g_strreplace(strarr[i+1], "$HOME", dir_home, 0);
 				if (g_file_test(filepath, G_FILE_TEST_IS_REGULAR) || g_str_has_prefix(filepath, "/tmp/")) {
 					menuitem = ui_image_menu_item_new(NULL, label);
-					g_signal_connect(G_OBJECT(menuitem), "activate", G_CALLBACK(item_activated_open_file_in_callback_arg), filepath);
+					g_signal_connect(G_OBJECT(menuitem), "activate", G_CALLBACK(on_item_activated_open_file_in_callback_arg), filepath);
 				}
 			}
 
@@ -294,7 +303,7 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 		gtk_menu_tool_button_set_menu(plugin_private.toolbar_item_favourites, plugin_private.menu_favorites);
 		gtk_toolbar_insert(GTK_TOOLBAR(geany_data->main_widgets->toolbar), GTK_TOOL_ITEM(plugin_private.toolbar_item_favourites), 1);
 		gtk_widget_show_all(GTK_WIDGET(plugin_private.toolbar_item_favourites));
-		g_signal_connect(G_OBJECT(plugin_private.toolbar_item_favourites), "clicked", G_CALLBACK(item_activated_by_id), GINT_TO_POINTER(KEY_SHOW_FAVOURITES));
+		g_signal_connect(G_OBJECT(plugin_private.toolbar_item_favourites), "clicked", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(KEY_SHOW_FAVOURITES));
 
 		free(strarr);
 	}
@@ -337,6 +346,7 @@ static void unclutter_based_on_current_filetype(GeanyDocument *doc) {
 
 // Callback: New document opened in Geany
 static void on_document_new(GObject *obj, GeanyDocument *doc, gpointer user_data) {
+	debug_doc_info_to_msgwin(doc, "on_document_new");
 	ScintillaObject	*sci;
 	if((sci = doc->editor->sci) == NULL) {
 		return;
@@ -347,15 +357,25 @@ static void on_document_new(GObject *obj, GeanyDocument *doc, gpointer user_data
 	gtk_widget_grab_focus(GTK_WIDGET(sci));
 	switch_to_html_for_markdown_files(doc);
 	unclutter_based_on_current_filetype(doc);
+
+	// For new & completly empty documents, no filetype is specified
+	// For use of quickly writing down something, it's useful to have Markdown highlighting
+	if (doc->file_type != NULL && doc->file_type->extension == NULL && sci_get_length(sci) < 3) {
+		GeanyFiletype *ft;
+		if ((ft = filetypes_detect_from_file("f.md")) != NULL) {
+			document_set_filetype(doc, ft);
+		}
+	}
 }
 
 // Callback: Existing document opened in Geany (not called for new file)
 static void on_document_open(GObject *obj, GeanyDocument *doc, gpointer user_data) {
+	debug_doc_info_to_msgwin(doc, "on_document_open");
 	switch_to_html_for_markdown_files(doc);
 }
 
-
 static void on_document_shown(GObject *obj, GeanyDocument *doc, gpointer user_data) {
+	debug_doc_info_to_msgwin(doc, "on_document_shown");
 	unclutter_based_on_current_filetype(doc);
 }
 
@@ -382,11 +402,11 @@ void plugin_init(GeanyData *geany_data) {
 	switch_to_message_window_tab(config);
 
 	// Setup Keybindings
-	plugin_private.key_group = plugin_set_key_group(geany_plugin, PLUGIN_NAME, KEYBINDING_KEYS_COUNT, item_activated_by_keybinding_id);
+	plugin_private.key_group = plugin_set_key_group(geany_plugin, PLUGIN_NAME, KEYBINDING_KEYS_COUNT, on_item_activated_by_keybinding_id);
 
 	// JSON Reformat
 	plugin_private.menuitem_json_reformat = ui_image_menu_item_new(NULL, _("json__reformat"));
-	g_signal_connect(G_OBJECT(plugin_private.menuitem_json_reformat), "activate", G_CALLBACK(item_activated_by_id), GINT_TO_POINTER(KEY_JSON_REFORMAT));
+	g_signal_connect(G_OBJECT(plugin_private.menuitem_json_reformat), "activate", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(KEY_JSON_REFORMAT));
 	gtk_widget_show_all(plugin_private.menuitem_json_reformat);
 	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_json_reformat);
 	keybindings_set_item(plugin_private.key_group, KEY_JSON_REFORMAT, NULL, 0, 0, "json_reformat", _("json_reformat"), plugin_private.menuitem_json_reformat);
