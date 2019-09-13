@@ -193,7 +193,7 @@ static void restyle_sidebar(GKeyFile* config) {
 	// Restyle sidebar
 	gtk_css_provider_load_from_data((cssProvider = gtk_css_provider_new()), ""
 		"*                       { background-color: #3A3D3F; } "
-		".myNotebook tab         { background-color: #3A3D3F; border-right-style: solid; border-color: @theme_selected_bg_color; border-bottom-width: 1px; border-right-width: 1px; border-bottom-right-radius: 9px; border-top-right-radius: 9px; border-left-width: 0px; border-bottom-style: solid; margin-right: 3px; }"
+		".myNotebook tab         { background-color: #3A3D3F; border-right-style: solid; border-top-style: solid; border-top-width: 1px; border-color: @theme_selected_bg_color; border-bottom-width: 1px; border-right-width: 2px; border-bottom-right-radius: 12px; border-top-right-radius: 12px; border-left-width: 0px; border-bottom-style: solid; margin-right: 3px; margin-bottom: 6px; }"
 		".myNotebook tab:checked { background-color: @theme_selected_bg_color; }"
 		"*                       {  }"
 		, -1, NULL);
