@@ -53,6 +53,8 @@ static struct plugin_private {
 	// Lists
 	GList                menuitem_list;            // dynamic allocated items that must be free'd
 	GeanyKeyGroup       *key_group;                // Key bindings
+
+	gboolean             current_doc_is_new;
 } plugin_private;
 
 //######################################################################################################
@@ -62,7 +64,7 @@ static void debug_doc_info_to_msgwin(GeanyDocument *doc, const char *eventname) 
 		return;
 	}
 	const char *ft_ext = (doc->file_type != NULL && doc->file_type->extension != NULL) ? doc->file_type->extension : "NULL";
-	msgwin_status_add ("[DEBUG/debug_doc_info_to_msgwin]: %s ft_ext >%s<)", eventname, ft_ext);
+	msgwin_status_add ("[DEBUG/debug_doc_info_to_msgwin]: %s ft_ext >%s<, new?%d, filename >%s<)", eventname, ft_ext, plugin_private.current_doc_is_new ? 1 : 0 ,(doc->file_name != NULL ? doc->file_name : "NULL"));
 }
 
 // Frees input string
@@ -368,6 +370,22 @@ static void on_document_new(GObject *obj, GeanyDocument *doc, gpointer user_data
 	}
 }
 
+static void on_document_save(GObject *obj, GeanyDocument *doc, gpointer user_data) {
+	debug_doc_info_to_msgwin(doc, "on_document_save");
+	gboolean is_new_file = plugin_private.current_doc_is_new;
+	plugin_private.current_doc_is_new = FALSE;
+
+	const char *ft_ext_nn = (doc->file_type->extension == NULL ? "" : doc->file_type->extension);
+	const gboolean is_default_ft_for_filename = (filetypes_detect_from_file(DOC_FILENAME(doc)) == doc->file_type) ? TRUE : FALSE;
+
+	if (is_new_file) {
+		// Saved a new file which had markdown filetype assigned (which may have been done by this plugin)
+		if (!is_default_ft_for_filename && (g_str_equal(ft_ext_nn, "md") || g_str_equal(ft_ext_nn, "mdml"))) {
+			document_set_filetype(doc, filetypes_detect_from_file(DOC_FILENAME(doc)));
+		}
+	}
+}
+
 // Callback: Existing document opened in Geany (not called for new file)
 static void on_document_open(GObject *obj, GeanyDocument *doc, gpointer user_data) {
 	debug_doc_info_to_msgwin(doc, "on_document_open");
@@ -375,6 +393,7 @@ static void on_document_open(GObject *obj, GeanyDocument *doc, gpointer user_dat
 }
 
 static void on_document_shown(GObject *obj, GeanyDocument *doc, gpointer user_data) {
+	plugin_private.current_doc_is_new = (doc->file_name == NULL ? TRUE : FALSE);
 	debug_doc_info_to_msgwin(doc, "on_document_shown");
 	unclutter_based_on_current_filetype(doc);
 }
@@ -394,6 +413,7 @@ void plugin_init(GeanyData *geany_data) {
 	plugin_signal_connect(geany_plugin, NULL, "document-new",      TRUE, (GCallback) &on_document_new,   NULL);
 	plugin_signal_connect(geany_plugin, NULL, "document-open",     TRUE, (GCallback) &on_document_open,  NULL);
 	plugin_signal_connect(geany_plugin, NULL, "document-activate", TRUE, (GCallback) &on_document_shown, NULL);
+	plugin_signal_connect(geany_plugin, NULL, "document-save",     TRUE, (GCallback) &on_document_save, NULL);
 
 	// Hide some clutter options from menus
 	unclutter_ui();
