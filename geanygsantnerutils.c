@@ -362,7 +362,7 @@ static void on_document_new(GObject *obj, GeanyDocument *doc, gpointer user_data
 
 	// For new & completly empty documents, no filetype is specified
 	// For use of quickly writing down something, it's useful to have Markdown highlighting
-	if (doc->file_type != NULL && doc->file_type->extension == NULL && sci_get_length(sci) < 3) {
+	if (FALSE && doc->file_type != NULL && doc->file_type->extension == NULL && sci_get_length(sci) < 3) {
 		GeanyFiletype *ft;
 		if ((ft = filetypes_detect_from_file("f.md")) != NULL) {
 			document_set_filetype(doc, ft);
