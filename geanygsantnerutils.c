@@ -230,6 +230,61 @@ static void restyle_sidebar(GKeyFile* config) {
 	}
 }
 
+/*
+// Let user select a dialog
+// Returns gchar *filepath or NULL 
+static gchar* show_select_folder_dialog() {
+	gchar *filepath = NULL;
+	GtkWidget *dialog = gtk_file_chooser_dialog_new(_("Select folder"),
+		NULL, GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
+		_("_Cancel"), GTK_RESPONSE_CANCEL,
+		_("_Select"), GTK_RESPONSE_ACCEPT, NULL
+	);
+    if (g_file_test("/tmp/aatmp", G_FILE_TEST_EXISTS|G_FILE_TEST_IS_DIR)) {
+		gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), "/tmp/aatmp");
+	} else {
+		gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), g_get_home_dir());
+	}
+
+	if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT){
+		filepath = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+	}
+	gtk_widget_destroy(dialog);
+	return filepath;
+}
+*/
+
+/*
+void init_project_in_folder() {
+	GeanyDocument *doc = document_get_current();
+	gchar *fp_name, *fp_projectfile, *project_content;
+	gchar *fp_full = show_select_folder_dialog();
+
+	// Use folder name as project name
+	if (fp_full != NULL) {
+		if ((fp_name = g_path_get_basename(fp_full)) != NULL) {
+			fp_projectfile = g_build_filename(fp_full, ".geany-project.geany", NULL);
+			if (!g_file_test(fp_projectfile, G_FILE_TEST_EXISTS)) {
+				// No existing project -> generate project
+				GString *c = g_string_new("[project]\nname=");
+				g_string_append(c, fp_name);
+				g_string_append(c, "\nbase_path=");
+				g_string_append(c, fp_full);
+				g_string_append(c, "\n");
+				project_content = g_string_free(c, FALSE);
+				utils_write_file(fp_projectfile, project_content);
+			}
+		}
+	}
+
+	g_free(project_content);
+	g_free(fp_projectfile);
+	g_free(fp_name);
+	g_free(fp_full);
+}
+*/
+
+
 // Hide some clutter options from menus
 static void unclutter_ui() {
 	gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_open_selected_file1"));
