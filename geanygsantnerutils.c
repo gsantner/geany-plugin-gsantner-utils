@@ -284,6 +284,44 @@ void init_project_in_folder() {
 }
 */
 
+void treebrowser_plugin_load_folder(const gchar* filepath){
+    if (!g_file_test(filepath, G_FILE_TEST_EXISTS|G_FILE_TEST_IS_DIR)) {
+		return;
+	}
+
+	GtkComboBox *filetree_filepath_input = NULL;
+	GtkNotebook *sidebarNotebook = GTK_NOTEBOOK(ui_lookup_widget(geany_data->main_widgets->window, "notebook3"));
+
+	// Find page of treebrowser plugin (German)
+	guint notebook_page;
+	for (notebook_page=0; notebook_page < gtk_notebook_get_n_pages(sidebarNotebook); notebook_page++) {
+		GtkWidget *child = GTK_WIDGET(gtk_notebook_get_nth_page(sidebarNotebook, notebook_page));
+		if (g_str_equal(gtk_notebook_get_tab_label_text(sidebarNotebook, child), "Dateien")) {
+			break;
+		}
+	}
+
+	if (notebook_page < gtk_notebook_get_n_pages(sidebarNotebook)) {
+		// Iterate filetree tab content children
+		GtkContainer *filetree_notebook_page = GTK_CONTAINER(gtk_notebook_get_nth_page(sidebarNotebook, notebook_page));
+
+		guint num=0;
+		for (GList *iterator = gtk_container_get_children(GTK_CONTAINER(filetree_notebook_page)); iterator; iterator = iterator->next) {
+			 // filetree combobox for filepath
+			if (num == 2 && g_str_equal(gtk_buildable_get_name(iterator->data), "GtkComboBox")) {
+				filetree_filepath_input = iterator->data;
+			}
+			num++;
+		}
+	}
+
+	// Set custom default value
+	if (filetree_filepath_input != NULL) {
+		gtk_entry_set_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(filetree_filepath_input))), filepath);
+		g_signal_emit_by_name(gtk_bin_get_child(GTK_BIN(filetree_filepath_input)), "activate");
+	}
+}
+
 
 // Hide some clutter options from menus
 static void unclutter_ui() {
@@ -457,6 +495,11 @@ static void on_document_shown(GObject *obj, GeanyDocument *doc, gpointer user_da
 
 //######################################################################################################
 
+static gboolean plugin_post_init_200ms()  {
+	treebrowser_plugin_load_folder("/tmp/aatmp");
+	return FALSE; // Destorys timer
+}
+
 // Init plugin
 void plugin_init(GeanyData *geany_data) {
     main_locale_init(LOCALEDIR, GETTEXT_PACKAGE);
@@ -493,6 +536,10 @@ void plugin_init(GeanyData *geany_data) {
 	add_favourites_to_menu(dir_home, config, file_menu);
 
 
+	// Post Init
+	g_timeout_add(200, plugin_post_init_200ms, NULL);
+
+
 /////
 	// Testing code
 	//gtk_label_set_angle(ui_lookup_widget(geany_data->main_widgets->window, "label137"), 90);
@@ -506,7 +553,6 @@ void plugin_init(GeanyData *geany_data) {
 	// Free resources
 	free((char*) dir_home);
 }
-
 
 // Plugin destructor
 // gtk_widget_destroy includes free()
