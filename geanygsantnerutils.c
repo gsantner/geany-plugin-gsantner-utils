@@ -186,20 +186,25 @@ static void on_item_activated_by_id(GtkWidget *wid, gpointer eventdata) {
 static void restyle_sidebar(GKeyFile* config) {
 	GtkToolbar *toolbar = GTK_TOOLBAR(geany_data->main_widgets->toolbar);
 	GtkNotebook *sidebarNotebook = GTK_NOTEBOOK(ui_lookup_widget(geany_data->main_widgets->window, "notebook3"));
+	GtkNotebook *infoNotebook = GTK_NOTEBOOK(ui_lookup_widget(geany_data->main_widgets->window, "notebook_info"));
 	GtkCssProvider *cssProvider;
 	GtkStyleContext * cssContext = gtk_widget_get_style_context(GTK_WIDGET(sidebarNotebook));
 
+	// Restyle info sidebar
+	gtk_css_provider_load_from_data((cssProvider = gtk_css_provider_new()), ".infoNotebook { border-left-width: 0px; }", -1, NULL);
+	gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(infoNotebook)), "infoNotebook");
+	gtk_style_context_add_provider(gtk_widget_get_style_context(GTK_WIDGET(infoNotebook)), GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
 
 	// Restyle sidebar
 	gtk_css_provider_load_from_data((cssProvider = gtk_css_provider_new()), ""
 		"*                       { background-color: #3A3D3F; } "
-		".myNotebook tab         { background-color: #3A3D3F; border-right-style: solid; border-top-style: solid; border-top-width: 1px; border-color: @theme_selected_bg_color; border-bottom-width: 1px; border-right-width: 2px; border-bottom-right-radius: 12px; border-top-right-radius: 12px; border-left-width: 0px; border-bottom-style: solid; margin-right: 3px; margin-bottom: 6px; }"
-		".myNotebook tab:checked { background-color: @theme_selected_bg_color; }"
+		".sidebarNotebook tab         { background-color: #3A3D3F; border-right-style: solid; border-top-style: solid; border-top-width: 1px; border-color: @theme_selected_bg_color; border-bottom-width: 1px; border-right-width: 2px; border-bottom-right-radius: 12px; border-top-right-radius: 12px; border-left-width: 0px; border-bottom-style: solid; margin-right: 3px; margin-bottom: 6px; }"
+		".sidebarNotebook tab:checked { background-color: @theme_selected_bg_color; }"
+		".sidebarNotebook             { border-left-width: 0px; border-top-width: 0px; }"
 		"*                       {  }"
 		, -1, NULL);
-	gtk_style_context_add_class(cssContext, "myNotebook");
+	gtk_style_context_add_class(cssContext, "sidebarNotebook");
 	gtk_style_context_add_provider(cssContext, GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
-
 
 	// Restyle sidebar tab labels
 	gtk_css_provider_load_from_data((cssProvider = gtk_css_provider_new()), "* { color: @menu_fg_color; font-family: Monospace; font-size: 16px; font-weight: bold; }", -1, NULL);
