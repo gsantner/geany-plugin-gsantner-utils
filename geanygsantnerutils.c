@@ -37,6 +37,7 @@ PLUGIN_VERSION_CHECK(147)
 PLUGIN_SET_INFO("gsantner utils", "Favourites, json_reformat, vertical sidebar and various other improvements", "1.0", "Gregor Santner <gsantner@mailbox.org>")
 
 enum SignalKeys {
+	KEY_XML_REFORMAT,
 	KEY_JSON_REFORMAT,
 	KEYBINDING_KEYS_COUNT,
 	KEY_SHOW_FAVOURITES,
@@ -44,6 +45,7 @@ enum SignalKeys {
 static struct plugin_private {
 	// json_reformat
 	GtkWidget           *menuitem_json_reformat;   // tools menu option
+	GtkWidget           *menuitem_xml_reformat;   // tools menu option
 
 	// Favourites
 	GtkWidget           *menuitem_favourites;      // file menu option
@@ -156,6 +158,64 @@ static void exec_json_reformat() {
 	free(filename);
 }
 
+
+// Use tidy executable to reformat XML / HTML
+// Write text of current open file to temporary file, tidy and capture output 
+static void exec_xml_reformat() {
+	GeanyDocument	*doc;
+	ScintillaObject	*sci;
+	if((doc = document_get_current()) == NULL || (sci = doc->editor->sci) == NULL) {
+		return;
+	}
+
+	// Current content
+	gchar *text = sci_get_contents(sci, -1);
+	gchar *filename = document_get_basename_for_display(doc, -1);
+
+	// Temporary filenames
+	char tmp_infile[L_tmpnam];
+	close(mkstemp(tmp_infile));
+	char *tmp_outfile = g_string_free(g_string_append(g_string_new(tmp_infile), ".out"), FALSE);
+	// Prepare cmd
+	GString *syscmd_gstring = g_string_new("/bin/cat '");
+	g_string_append(syscmd_gstring, tmp_infile);
+	g_string_append(syscmd_gstring, "' | tidy -xml --indent auto --indent-spaces 2 --quiet yes > '");
+	g_string_append(syscmd_gstring, tmp_outfile);
+	g_string_append(syscmd_gstring, "'");
+	char *syscmd = g_string_free(syscmd_gstring, FALSE);
+
+	// Run CMD
+	g_file_set_contents(tmp_infile, text, -1, NULL);
+	g_free(text); text=NULL;
+	int exitc = system(syscmd);
+
+	// Get results & delete working files
+	gsize length;
+	g_file_get_contents(tmp_outfile, &text, &length, NULL);
+	unlink(tmp_infile);
+	unlink(tmp_outfile);
+
+	// Evaluate result
+	if (exitc == 0) {
+		// Set reformatted text to UI
+		sci_start_undo_action(sci);
+		sci_set_text(sci, text);
+		sci_end_undo_action(sci);
+	} else if (exitc > 256) {
+		msgwin_switch_tab(MSG_MESSAGE, 1);
+		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] tidy not installed. Contained in package tidy"), filename);
+	} else {
+		msgwin_switch_tab(MSG_MESSAGE, 1);
+		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] tidy error, code %d. The content seems not to be valid XML/HTML."), filename, exitc);
+	}
+
+	// Free resources
+	free(text);
+	free(syscmd);
+	free(tmp_outfile);
+	free(filename);
+}
+
 //######################################################################################################
 
 static void on_item_activated_open_file_in_callback_arg(GtkWidget *wid, gpointer filepath) {
@@ -169,6 +229,9 @@ static gboolean on_item_activated_by_keybinding_id(guint keyid) {
 	switch(keyid) {
 	case KEY_JSON_REFORMAT:
 		exec_json_reformat();
+		break;
+	case KEY_XML_REFORMAT:
+		exec_xml_reformat();
 		break;
 	case KEY_SHOW_FAVOURITES:
 		gtk_menu_popup_at_pointer(GTK_MENU(gtk_menu_tool_button_get_menu(plugin_private.toolbar_item_favourites)), NULL);
@@ -534,6 +597,12 @@ void plugin_init(GeanyData *geany_data) {
 	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_json_reformat);
 	keybindings_set_item(plugin_private.key_group, KEY_JSON_REFORMAT, NULL, 0, 0, "json_reformat", _("json_reformat"), plugin_private.menuitem_json_reformat);
 
+	// XML Reformat
+	plugin_private.menuitem_xml_reformat = ui_image_menu_item_new(NULL, _("xml/html reformat indent (tidy)"));
+	g_signal_connect(G_OBJECT(plugin_private.menuitem_xml_reformat), "activate", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(KEY_XML_REFORMAT));
+	gtk_widget_show_all(plugin_private.menuitem_xml_reformat);
+	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_xml_reformat);
+
 	// Restyle sidebar
 	restyle_sidebar(config);
 
@@ -569,6 +638,7 @@ void plugin_cleanup(void) {
 		gtk_widget_destroy(GTK_WIDGET(plugin_private.toolbar_item_favourites)); 
 	}
 	if (GTK_IS_WIDGET(plugin_private.menuitem_json_reformat))  { gtk_widget_destroy(plugin_private.menuitem_json_reformat); }
+	if (GTK_IS_WIDGET(plugin_private.menuitem_xml_reformat))  { gtk_widget_destroy(plugin_private.menuitem_xml_reformat); }
 	if (GTK_IS_WIDGET(plugin_private.menu_favorites))          { gtk_widget_destroy(plugin_private.menu_favorites); }
 	if (GTK_IS_WIDGET(plugin_private.menuitem_favourites))     { gtk_widget_destroy(plugin_private.menuitem_favourites); }
 
