@@ -179,7 +179,7 @@ static void exec_xml_reformat() {
 	// Prepare cmd
 	GString *syscmd_gstring = g_string_new("/bin/cat '");
 	g_string_append(syscmd_gstring, tmp_infile);
-	g_string_append(syscmd_gstring, "' | tidy -xml --indent auto --indent-spaces 2 --quiet yes > '");
+	g_string_append(syscmd_gstring, "' | tidy -xml -w 105 --indent auto --indent-spaces 2 --quiet yes > '");
 	g_string_append(syscmd_gstring, tmp_outfile);
 	g_string_append(syscmd_gstring, "'");
 	char *syscmd = g_string_free(syscmd_gstring, FALSE);
