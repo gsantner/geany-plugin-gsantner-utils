@@ -143,6 +143,7 @@ static void exec_json_reformat() {
 		sci_start_undo_action(sci);
 		sci_set_text(sci, text);
 		sci_end_undo_action(sci);
+		sci_set_current_position(sci, 0, TRUE);
 	} else if (exitc > 256) {
 		msgwin_switch_tab(MSG_MESSAGE, 1);
 		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] json_reformat not installed. Contained in package yajl-tools"), filename);
@@ -192,6 +193,7 @@ static void exec_xml_reformat() {
 	// Get results & delete working files
 	gsize length;
 	g_file_get_contents(tmp_outfile, &text, &length, NULL);
+
 	unlink(tmp_infile);
 	unlink(tmp_outfile);
 
@@ -201,6 +203,7 @@ static void exec_xml_reformat() {
 		sci_start_undo_action(sci);
 		sci_set_text(sci, text);
 		sci_end_undo_action(sci);
+		sci_set_current_position(sci, 0, TRUE);
 	} else if (exitc > 256) {
 		msgwin_switch_tab(MSG_MESSAGE, 1);
 		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] tidy not installed. Contained in package tidy"), filename);
