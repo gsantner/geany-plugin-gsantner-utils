@@ -39,13 +39,15 @@ PLUGIN_SET_INFO("gsantner utils", "Favourites, json_reformat, vertical sidebar a
 enum SignalKeys {
 	KEY_XML_REFORMAT,
 	KEY_JSON_REFORMAT,
+	KEY_PIPE,
 	KEYBINDING_KEYS_COUNT,
 	KEY_SHOW_FAVOURITES,
 };
 static struct plugin_private {
-	// json_reformat
+	// Submenu options
 	GtkWidget           *menuitem_json_reformat;   // tools menu option
-	GtkWidget           *menuitem_xml_reformat;   // tools menu option
+	GtkWidget           *menuitem_xml_reformat;    // tools menu option
+	GtkWidget           *menuitem_pipe;            // tools menu option
 
 	// Favourites
 	GtkWidget           *menuitem_favourites;      // file menu option
@@ -219,6 +221,67 @@ static void exec_xml_reformat() {
 	free(filename);
 }
 
+// Pipe
+static void exec_pipe() {
+	GeanyDocument	*doc;
+	ScintillaObject	*sci;
+	if((doc = document_get_current()) == NULL || (sci = doc->editor->sci) == NULL) {
+		return;
+	}
+
+	// Get pipe input
+	gchar *user_input = dialogs_show_input("Pipe", NULL, "echo doc | >>INPUT<<  > mod", "grep -i \"\"");
+
+	// Current content
+	gchar *text = sci_get_contents(sci, -1);
+	gchar *filename = document_get_basename_for_display(doc, -1);
+
+	// Temporary filenames
+	char tmp_infile[L_tmpnam];
+	close(mkstemp(tmp_infile));
+	char *tmp_outfile = g_string_free(g_string_append(g_string_new(tmp_infile), ".out"), FALSE);
+	// Prepare cmd
+	GString *syscmd_gstring = g_string_new("/bin/cat '");
+	g_string_append(syscmd_gstring, tmp_infile);
+	g_string_append(syscmd_gstring, "' | ");
+	g_string_append(syscmd_gstring, user_input);
+	g_string_append(syscmd_gstring, " > '");
+	g_string_append(syscmd_gstring, tmp_outfile);
+	g_string_append(syscmd_gstring, "'");
+	char *syscmd = g_string_free(syscmd_gstring, FALSE);
+
+	// Run CMD
+	g_file_set_contents(tmp_infile, text, -1, NULL);
+	g_free(text); text=NULL;
+	int exitc = system(syscmd);
+
+	// Get results & delete working files
+	gsize length;
+	g_file_get_contents(tmp_outfile, &text, &length, NULL);
+
+	unlink(tmp_infile);
+	unlink(tmp_outfile);
+
+	// Evaluate result
+	if (exitc == 0) {
+		// Set reformatted text to UI
+		sci_start_undo_action(sci);
+		sci_set_text(sci, text);
+		sci_end_undo_action(sci);
+		sci_set_current_position(sci, 0, TRUE);
+	} else {
+		msgwin_switch_tab(MSG_MESSAGE, 1);
+		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] Error code %d. -> %s"), filename, exitc, text);
+	}
+
+	// Free resources
+	free(text);
+	free(syscmd);
+	free(tmp_outfile);
+	free(filename);
+	free(user_input);
+}
+
 //######################################################################################################
 
 static void on_item_activated_open_file_in_callback_arg(GtkWidget *wid, gpointer filepath) {
@@ -235,6 +298,9 @@ static gboolean on_item_activated_by_keybinding_id(guint keyid) {
 		break;
 	case KEY_XML_REFORMAT:
 		exec_xml_reformat();
+		break;
+	case KEY_PIPE:
+		exec_pipe();
 		break;
 	case KEY_SHOW_FAVOURITES:
 		gtk_menu_popup_at_pointer(GTK_MENU(gtk_menu_tool_button_get_menu(plugin_private.toolbar_item_favourites)), NULL);
@@ -605,6 +671,12 @@ void plugin_init(GeanyData *geany_data) {
 	g_signal_connect(G_OBJECT(plugin_private.menuitem_xml_reformat), "activate", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(KEY_XML_REFORMAT));
 	gtk_widget_show_all(plugin_private.menuitem_xml_reformat);
 	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_xml_reformat);
+
+	// Pipe
+	plugin_private.menuitem_pipe = ui_image_menu_item_new(NULL, _("Pipe (grep/cut/..)"));
+	g_signal_connect(G_OBJECT(plugin_private.menuitem_pipe), "activate", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(KEY_PIPE));
+	gtk_widget_show_all(plugin_private.menuitem_pipe);
+	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_pipe);
 
 	// Restyle sidebar
 	restyle_sidebar(config);
