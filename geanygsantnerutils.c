@@ -154,6 +154,11 @@ static void exec_json_reformat() {
 		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] json_reformat error, code %d. The content seems not to be valid JSON."), filename, exitc);
 	}
 
+	GeanyFiletype *ft;
+	if ((ft = filetypes_detect_from_file("f.json")) != NULL) {
+		document_set_filetype(doc, ft);
+	}
+
 	// Free resources
 	free(text);
 	free(syscmd);
