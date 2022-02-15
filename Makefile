@@ -3,7 +3,8 @@ BASENAME=geanygsantnerutils
 CFLAGS=`pkg-config --cflags geany` -fPIC -Wall -pedantic -O3 -DLOCALEDIR=\"\" -DGETTEXT_PACKAGE=\"geany-gsantnerutils\"
 LDLIBS=`pkg-config --libs geany`
 
-PLUGINDIR=`pkg-config --variable=libdir geany`/geany
+PLUGINDIR_SYSTEM=`pkg-config --variable=libdir geany`/geany
+PLUGINDIR_USER="$${HOME}/.config/geany/plugins"
 
 .PHONY: build rebuild clean install install-link all
 
@@ -30,16 +31,17 @@ clean:
 	rm -f *.o *.so
 
 # Install to system
+install-system: build
+	@echo "\nInstall..."
+	sudo rm -f "$(PLUGINDIR_SYSTEM)/$(BASENAME).so"
+	sudo cp "$(BASENAME).so" "$(PLUGINDIR_SYSTEM)"
+
+# Install to home
 install: build
 	@echo "\nInstall..."
-	sudo rm -f $(PLUGINDIR)/$(BASENAME).so
-	sudo cp $(BASENAME).so $(PLUGINDIR)
-
-# Install to system with logical link to build filepath, use for development
-install-link: build
-	@echo "\nInstall (link)..."
-	sudo rm -f $(PLUGINDIR)/$(BASENAME).so
-	sudo ln -s `pwd`/$(BASENAME).so $(PLUGINDIR)
+	mkdir -p "$(PLUGINDIR_USER)"
+	rm -f "$(PLUGINDIR_USER)/$(BASENAME).so"
+	cp "$(BASENAME).so" "$(PLUGINDIR_USER)"
 
 ######################################################################################################
 # Translation
