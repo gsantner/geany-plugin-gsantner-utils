@@ -26,7 +26,7 @@ A [Geany](http://geany.org) plugin with various utilies and improvements to gene
 
 #### Configuration example
 ```
- # geany.conf
+ # ~/.config/geany/geany.conf
 
 [geanygsantnerutils]
 favourites=myScripts >> shellscript.sh;/mnt/usb/myScripts/shellscript.sh;---;geany.conf;$HOME/.config/geany/geany.conf
@@ -37,13 +37,13 @@ favourites=myScripts >> shellscript.sh;/mnt/usb/myScripts/shellscript.sh;---;gea
 * Install Geany, GNU C compiler and build-essentials.
 * Run `make install`
 * Close all instance of Geany and restart
-* Open plugin list and enable gsantner utils plugin
+* Open plugin list and enable geanygsantnerutils plugin
 
 ### Development
 This is the easiest option to develop on this plugin, go to the repo and execute command below.
 It allows you to edit the plugin in Geany while seeing changes of last build. Quit Geany and it's automatically restarted with new plugin development version.
 ```
-while [ 1 -eq 1 ] ; do make install && geany -v && sleep 0.2; done
+while [ true ] ; do make install && geany -v && sleep 0.2; done
 ```
 
 #### Resources
