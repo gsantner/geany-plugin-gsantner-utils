@@ -71,7 +71,7 @@ static void debug_doc_info_to_msgwin(GeanyDocument *doc, const char *eventname) 
 }
 
 // Frees input string
-static gchar* g_strreplace(gchar *text, const gchar *search, const gchar *replace, gboolean free_input) {
+static gchar* gs_glib_strreplace(gchar *text, const gchar *search, const gchar *replace, gboolean free_input) {
 	char **split = g_strsplit(text, search, -1);
 	if (free_input) {
 		g_free(text);
@@ -81,14 +81,14 @@ static gchar* g_strreplace(gchar *text, const gchar *search, const gchar *replac
 	return text;
 }
 
-static gchar *geany_config_filepath() {
+static gchar *geany_conf_filepath() {
 	return g_build_filename(geany_data->app->configdir, "geany.conf", NULL);
 }
 
 // Get settings object for standard geany.conf file
-static GKeyFile* geany_config() {
+static GKeyFile* geany_conf_load() {
 #pragma GCC diagnostic ignored "-Wunused-result"
-	gchar *configfile = geany_config_filepath();
+	gchar *configfile = geany_conf_filepath();
 	GKeyFile *config = g_key_file_new();
 
 	if (! g_file_test(configfile, G_FILE_TEST_IS_REGULAR)) {
@@ -318,8 +318,8 @@ static void on_item_activated_by_id(GtkWidget *wid, gpointer eventdata) {
 }
 
 // Restyle the sidebar (containing "symbols" "files" "projects" etc)
-static void restyle_sidebar(GKeyFile* config) {
-	const gboolean doSidebar = FALSE, doToolbarColor = TRUE, doToolbarHints = TRUE;
+static void ui_debloat_and_restyle(GKeyFile* config) {
+	const gboolean doSidebar = FALSE, doToolbarColor = TRUE, doToolbarHints = TRUE, doUnclutterToolbar = TRUE;
 
 	GtkToolbar *toolbar = GTK_TOOLBAR(geany_data->main_widgets->toolbar);
 	GtkNotebook *sidebarNotebook = GTK_NOTEBOOK(ui_lookup_widget(geany_data->main_widgets->window, "notebook3"));
@@ -327,8 +327,17 @@ static void restyle_sidebar(GKeyFile* config) {
 	GtkCssProvider *cssProvider; // Don't free(cssProvider)
 	GtkStyleContext * cssContext = gtk_widget_get_style_context(GTK_WIDGET(sidebarNotebook));
 
+	// Hide some clutter options from menus
+	if (doUnclutterToolbar) {
+		gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_open_selected_file1"));
+		gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_reload_as1"));
+		gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_close_all1"));
+		gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "close_other_documents1"));
+		gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_reload_as1"));
+	}
+
+	// Restyle info sidebar
 	if (doSidebar) {
-		// Restyle info sidebar
 		gtk_css_provider_load_from_data((cssProvider = gtk_css_provider_new()), ".infoNotebook { border-left-width: 0px; }", -1, NULL);
 		gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(infoNotebook)), "infoNotebook");
 		gtk_style_context_add_provider(gtk_widget_get_style_context(GTK_WIDGET(infoNotebook)), GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
@@ -374,7 +383,7 @@ static void restyle_sidebar(GKeyFile* config) {
 	}
 }
 
-void treebrowser_plugin_load_folder(const gchar* filepath){
+void ui_treebrowser_plugin_load_folder(const gchar* filepath){
     if (!g_file_test(filepath, G_FILE_TEST_EXISTS|G_FILE_TEST_IS_DIR)) {
 		return;
 	}
@@ -412,16 +421,6 @@ void treebrowser_plugin_load_folder(const gchar* filepath){
 	}
 }
 
-
-// Hide some clutter options from menus
-static void unclutter_ui() {
-	gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_open_selected_file1"));
-	gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_reload_as1"));
-	gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_close_all1"));
-	gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "close_other_documents1"));
-	gtk_widget_hide(ui_lookup_widget(geany_data->main_widgets->window, "menu_reload_as1"));
-}
-
 static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, const GtkMenu *file_menu) {
 	gchar *str;
 	gchar **strarr;
@@ -435,14 +434,14 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 		plugin_private.menu_favorites = gtk_menu_new();
 		for (int i=0; (strarr[i] != NULL && strarr[i+1] != NULL); i+=2) {
 			// First underscore is for keybinding and doesn't show up
-			gchar *label = g_strreplace(g_strreplace(strarr[i], "_", "__", 0), ">>", "»", 1);
+			gchar *label = gs_glib_strreplace(gs_glib_strreplace(strarr[i], "_", "__", 0), ">>", "»", 1);
 
 			// Create submenu item
 			GtkWidget* menuitem = NULL;
 			if (g_str_equal(label, "---")) { // Separator
 				menuitem = gtk_separator_menu_item_new(); i--;
 			} else { // Filepath
-				gchar *filepath = g_strreplace(strarr[i+1], "$HOME", dir_home, 0);
+				gchar *filepath = gs_glib_strreplace(strarr[i+1], "$HOME", dir_home, 0);
 				if (g_file_test(filepath, G_FILE_TEST_IS_REGULAR) || g_str_has_prefix(filepath, "/tmp/")) {
 					menuitem = ui_image_menu_item_new(NULL, label);
 					g_signal_connect(G_OBJECT(menuitem), "activate", G_CALLBACK(on_item_activated_open_file_in_callback_arg), filepath);
@@ -481,7 +480,7 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 
 // Switch to message window tab by setting
 // MSG_STATUS = 0, MSG_COMPILER = 1, MSG_MESSAGE = 2, MSG_SCRATCH = 3, MSG_VTE = 4
-void switch_to_message_window_tab(GKeyFile *config) {
+void ui_switch_to_message_window_tab(GKeyFile *config) {
 	int tab = utils_get_setting_integer(config, PLUGIN_NAME, "msgwin_tab", -1);
 	if (tab >= MSG_STATUS && tab <= MSG_VTE) {
 		msgwin_switch_tab(tab, FALSE);
@@ -489,7 +488,7 @@ void switch_to_message_window_tab(GKeyFile *config) {
 }
 
 // Markdown filetype format doesn't have any HTML highlighting, switch to HTML for mdml by default
-static void switch_to_html_for_markdown_files(GeanyDocument *doc) {
+static void ft_use_html_syntax_for_markdown_filesuse_html_syntax_for_markdown_files(GeanyDocument *doc) {
 	if (doc != NULL && doc->file_type != NULL && doc->file_type->extension != NULL && utils_str_equal(doc->file_type->extension, "mdml")) {
 		GeanyFiletype *htmlType;
 		if ((htmlType = filetypes_detect_from_file("f.html")) != NULL) {
@@ -499,7 +498,7 @@ static void switch_to_html_for_markdown_files(GeanyDocument *doc) {
 }
 
 // Hide menu options based on filetype
-static void unclutter_based_on_current_filetype(GeanyDocument *doc) {
+static void ui_debloat_based_on_current_filetype(GeanyDocument *doc) {
 	if (doc != NULL && doc->file_type != NULL && doc->file_type->extension != NULL) {
 		// C / C++ File
 		gboolean lang_c = (utils_str_equal(doc->file_type->extension, "c") || utils_str_equal(doc->file_type->extension, "cpp"));
@@ -520,8 +519,8 @@ static void on_document_new(GObject *obj, GeanyDocument *doc, gpointer user_data
 	// Geany by default doesn't focus editor for new files, hence user needs to click before typing is possible
 	// -> Focus editor and set carret to pos 0 for new documents
 	gtk_widget_grab_focus(GTK_WIDGET(sci));
-	switch_to_html_for_markdown_files(doc);
-	unclutter_based_on_current_filetype(doc);
+	ft_use_html_syntax_for_markdown_filesuse_html_syntax_for_markdown_files(doc);
+	ui_debloat_based_on_current_filetype(doc);
 
 	// For new & completly empty documents, no filetype is specified
 	// For use of quickly writing down something, it's useful to have Markdown highlighting
@@ -552,13 +551,13 @@ static void on_document_save(GObject *obj, GeanyDocument *doc, gpointer user_dat
 // Callback: Existing document opened in Geany (not called for new file)
 static void on_document_open(GObject *obj, GeanyDocument *doc, gpointer user_data) {
 	debug_doc_info_to_msgwin(doc, "on_document_open");
-	switch_to_html_for_markdown_files(doc);
+	ft_use_html_syntax_for_markdown_filesuse_html_syntax_for_markdown_files(doc);
 }
 
 static void on_document_shown(GObject *obj, GeanyDocument *doc, gpointer user_data) {
 	plugin_private.current_doc_is_new = (doc->file_name == NULL ? TRUE : FALSE);
 	debug_doc_info_to_msgwin(doc, "on_document_shown");
-	unclutter_based_on_current_filetype(doc);
+	ui_debloat_based_on_current_filetype(doc);
 }
 
 
@@ -566,14 +565,14 @@ static void on_document_shown(GObject *obj, GeanyDocument *doc, gpointer user_da
 //######################################################################################################
 
 static gboolean plugin_post_init_200ms()  {
-	treebrowser_plugin_load_folder("/tmp/aatmp");
+	ui_treebrowser_plugin_load_folder("/tmp/aatmp");
 	return FALSE; // Destorys timer
 }
 
 // Init plugin
 void plugin_init(GeanyData *geany_data) {
     main_locale_init(LOCALEDIR, GETTEXT_PACKAGE);
-	GKeyFile *config         = geany_config();
+	GKeyFile *config         = geany_conf_load();
 	const GtkMenu *file_menu = GTK_MENU(ui_lookup_widget(geany_data->main_widgets->window, "file1_menu"));
 	const gchar *dir_home    = g_get_home_dir();
 
@@ -583,11 +582,8 @@ void plugin_init(GeanyData *geany_data) {
 	plugin_signal_connect(geany_plugin, NULL, "document-activate", TRUE, (GCallback) &on_document_shown, NULL);
 	plugin_signal_connect(geany_plugin, NULL, "document-save",     TRUE, (GCallback) &on_document_save, NULL);
 
-	// Hide some clutter options from menus
-	unclutter_ui();
-
 	// Switch message window tab based on settings
-	switch_to_message_window_tab(config);
+	ui_switch_to_message_window_tab(config);
 
 	// Setup Keybindings
 	plugin_private.key_group = plugin_set_key_group(geany_plugin, PLUGIN_NAME, KEYBINDING_KEYS_COUNT, on_item_activated_by_keybinding_id);
@@ -612,7 +608,7 @@ void plugin_init(GeanyData *geany_data) {
 	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_pipe);
 
 	// Restyle sidebar
-	restyle_sidebar(config);
+	ui_debloat_and_restyle(config);
 
 	// Add favourites to the file menu
 	add_favourites_to_menu(dir_home, config, file_menu);
