@@ -33,19 +33,20 @@ const char *PLUGIN_NAME = "geanygsantnerutils";
 GeanyPlugin *geany_plugin; // Init by macros
 GeanyData *geany_data;     // Init by macros
 PLUGIN_VERSION_CHECK(147)
-PLUGIN_SET_INFO("gsantner utils", "Favourites, json_reformat, vertical sidebar and various other improvements", "1.1.0", "Gregor Santner <gsantner@mailbox.org>")
+PLUGIN_SET_INFO("gsantner utils", "Favourites, json_pretty, vertical sidebar and various other improvements", "1.1.0", "Gregor Santner <gsantner@mailbox.org>")
 
 enum SignalKeys {
-	KEY_XML_REFORMAT,
-	KEY_JSON_REFORMAT,
-	KEY_PIPE,
-	KEYBINDING_KEYS_COUNT,
-	KEY_SHOW_FAVOURITES,
+	GEANY_KEYS_GGU_XML_PRETTY,
+	GEANY_KEYS_GGU_JSON_PRETTY,
+	GEANY_KEYS_GGU_PIPE,
+	GEANY_KEYS_GGU_FAVOURITES,
+	GEANY_KEYS_GGU_SEARCH,
+	GEANY_KEYS_GGU_COUNT,
 };
 static struct plugin_private {
 	// Submenu options
-	GtkWidget           *menuitem_json_reformat;   // tools menu option
-	GtkWidget           *menuitem_xml_reformat;    // tools menu option
+	GtkWidget           *menuitem_json_pretty;   // tools menu option
+	GtkWidget           *menuitem_xml_pretty;    // tools menu option
 	GtkWidget           *menuitem_pipe;            // tools menu option
 
 	// Favourites
@@ -55,7 +56,7 @@ static struct plugin_private {
 
 	// Lists
 	GList                menuitem_list;            // dynamic allocated items that must be free'd
-	GeanyKeyGroup       *key_group;                // Key bindings
+	GeanyKeyGroup       *keybinding_group;         // Key bindings
 
 	gboolean             current_doc_is_new;
 } plugin_private;
@@ -104,7 +105,7 @@ static GKeyFile* geany_conf_load() {
 
 // Use json_reformat executable to reformat JSON
 // Write text of current open file to temporary file, json_reformat and capture output
-static void exec_json_reformat() {
+static void exec_json_pretty() {
 	GeanyDocument	*doc;
 	ScintillaObject	*sci;
 	if((doc = document_get_current()) == NULL || (sci = doc->editor->sci) == NULL) {
@@ -168,7 +169,7 @@ static void exec_json_reformat() {
 
 // Use tidy executable to reformat XML / HTML
 // Write text of current open file to temporary file, tidy and capture output
-static void exec_xml_reformat() {
+static void exec_xml_pretty() {
 	GeanyDocument	*doc;
 	ScintillaObject	*sci;
 	if((doc = document_get_current()) == NULL || (sci = doc->editor->sci) == NULL) {
@@ -234,7 +235,10 @@ static void exec_pipe() {
 	}
 
 	// Get pipe input
-	gchar *user_input = dialogs_show_input("Pipe", NULL, "echo doc | >>INPUT<<  > mod", "grep -i \"\"");
+	gchar *user_input = dialogs_show_input("Pipe", GTK_WINDOW(geany->main_widgets->window), "echo current-editor-text | >>INPUT<<  > editor-text-afterwards", "grep -i ");
+	if (user_input == NULL) { // canceled
+		return;
+	}
 
 	// Current content
 	gchar *text = sci_get_contents(sci, -1);
@@ -297,21 +301,25 @@ static void on_item_activated_open_file_in_callback_arg(GtkWidget *wid, gpointer
 
 static gboolean on_item_activated_by_keybinding_id(guint keyid) {
 	switch(keyid) {
-	case KEY_JSON_REFORMAT:
-		exec_json_reformat();
-		break;
-	case KEY_XML_REFORMAT:
-		exec_xml_reformat();
-		break;
-	case KEY_PIPE:
+	case GEANY_KEYS_GGU_JSON_PRETTY:
+		exec_json_pretty();
+		return TRUE;
+	case GEANY_KEYS_GGU_XML_PRETTY:
+		exec_xml_pretty();
+		return TRUE;
+	case GEANY_KEYS_GGU_PIPE:
 		exec_pipe();
-		break;
-	case KEY_SHOW_FAVOURITES:
+		return TRUE;
+	case GEANY_KEYS_GGU_SEARCH:
+		keybindings_send_command(GEANY_KEY_GROUP_SEARCH, GEANY_KEYS_SEARCH_FIND);
+		return TRUE;
+	case GEANY_KEYS_GGU_FAVOURITES:
 		gtk_menu_popup_at_pointer(GTK_MENU(gtk_menu_tool_button_get_menu(plugin_private.toolbar_item_favourites)), NULL);
-		break;
+		return TRUE;
 	}
-	return 0;
+	return FALSE;
 }
+
 // Menu item activated by ID. Forward to keybinding handler
 static void on_item_activated_by_id(GtkWidget *wid, gpointer eventdata) {
 	on_item_activated_by_keybinding_id(GPOINTER_TO_INT(eventdata));
@@ -470,7 +478,7 @@ static void add_favourites_to_menu(const gchar *dir_home, GKeyFile* config, cons
 		gtk_menu_tool_button_set_menu(plugin_private.toolbar_item_favourites, plugin_private.menu_favorites);
 		gtk_toolbar_insert(GTK_TOOLBAR(geany_data->main_widgets->toolbar), GTK_TOOL_ITEM(plugin_private.toolbar_item_favourites), 1);
 		gtk_widget_show_all(GTK_WIDGET(plugin_private.toolbar_item_favourites));
-		g_signal_connect(G_OBJECT(plugin_private.toolbar_item_favourites), "clicked", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(KEY_SHOW_FAVOURITES));
+		g_signal_connect(G_OBJECT(plugin_private.toolbar_item_favourites), "clicked", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(GEANY_KEYS_GGU_FAVOURITES));
 
 		free(strarr);
 	}
@@ -560,8 +568,6 @@ static void on_document_shown(GObject *obj, GeanyDocument *doc, gpointer user_da
 	ui_debloat_based_on_current_filetype(doc);
 }
 
-
-
 //######################################################################################################
 
 static gboolean plugin_post_init_200ms()  {
@@ -586,26 +592,34 @@ void plugin_init(GeanyData *geany_data) {
 	ui_switch_to_message_window_tab(config);
 
 	// Setup Keybindings
-	plugin_private.key_group = plugin_set_key_group(geany_plugin, PLUGIN_NAME, KEYBINDING_KEYS_COUNT, on_item_activated_by_keybinding_id);
+	plugin_private.keybinding_group = plugin_set_key_group(geany_plugin, PLUGIN_NAME, GEANY_KEYS_GGU_COUNT, on_item_activated_by_keybinding_id);
 
 	// JSON Reformat
-	plugin_private.menuitem_json_reformat = ui_image_menu_item_new(NULL, _("json__reformat"));
-	g_signal_connect(G_OBJECT(plugin_private.menuitem_json_reformat), "activate", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(KEY_JSON_REFORMAT));
-	gtk_widget_show_all(plugin_private.menuitem_json_reformat);
-	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_json_reformat);
-	keybindings_set_item(plugin_private.key_group, KEY_JSON_REFORMAT, NULL, 0, 0, "json_reformat", _("json_reformat"), plugin_private.menuitem_json_reformat);
+	const char *GEANY_KEYS_GGU_JSON_PRETTY_LABEL = _("[GGU] JSON pretty");
+	plugin_private.menuitem_json_pretty = ui_image_menu_item_new(NULL, GEANY_KEYS_GGU_JSON_PRETTY_LABEL);
+	g_signal_connect(G_OBJECT(plugin_private.menuitem_json_pretty), "activate", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(GEANY_KEYS_GGU_JSON_PRETTY));
+	gtk_widget_show_all(plugin_private.menuitem_json_pretty);
+	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_json_pretty);
+	keybindings_set_item(plugin_private.keybinding_group, GEANY_KEYS_GGU_JSON_PRETTY, NULL, 0, 0, "ggu_json_pretty", GEANY_KEYS_GGU_JSON_PRETTY_LABEL, plugin_private.menuitem_json_pretty);
 
 	// XML Reformat
-	plugin_private.menuitem_xml_reformat = ui_image_menu_item_new(NULL, _("xml/html reformat indent (tidy)"));
-	g_signal_connect(G_OBJECT(plugin_private.menuitem_xml_reformat), "activate", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(KEY_XML_REFORMAT));
-	gtk_widget_show_all(plugin_private.menuitem_xml_reformat);
-	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_xml_reformat);
+	const char *GEANY_KEYS_GGU_XML_PRETTY_LABEL = _("[GGU] XML/HTML pretty");
+	plugin_private.menuitem_xml_pretty = ui_image_menu_item_new(NULL, GEANY_KEYS_GGU_XML_PRETTY_LABEL);
+	g_signal_connect(G_OBJECT(plugin_private.menuitem_xml_pretty), "activate", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(GEANY_KEYS_GGU_XML_PRETTY));
+	gtk_widget_show_all(plugin_private.menuitem_xml_pretty);
+	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_xml_pretty);
+	keybindings_set_item(plugin_private.keybinding_group, GEANY_KEYS_GGU_XML_PRETTY, NULL, 0, 0, "ggu_xml_pretty", GEANY_KEYS_GGU_XML_PRETTY_LABEL, plugin_private.menuitem_xml_pretty);
 
 	// Pipe
-	plugin_private.menuitem_pipe = ui_image_menu_item_new(NULL, _("Pipe (grep/cut/..)"));
-	g_signal_connect(G_OBJECT(plugin_private.menuitem_pipe), "activate", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(KEY_PIPE));
+	const char *GEANY_KEYS_GGU_PIPE_LABEL = _("[GGU] Pipe (grep/cut/..)");
+	plugin_private.menuitem_pipe = ui_image_menu_item_new(NULL, GEANY_KEYS_GGU_PIPE_LABEL);
+	g_signal_connect(G_OBJECT(plugin_private.menuitem_pipe), "activate", G_CALLBACK(on_item_activated_by_id), GINT_TO_POINTER(GEANY_KEYS_GGU_PIPE));
 	gtk_widget_show_all(plugin_private.menuitem_pipe);
 	gtk_container_add(GTK_CONTAINER(geany_data->main_widgets->tools_menu), plugin_private.menuitem_pipe);
+	keybindings_set_item(plugin_private.keybinding_group, GEANY_KEYS_GGU_PIPE, NULL, 0, 0, "ggu_pipe", GEANY_KEYS_GGU_PIPE_LABEL, plugin_private.menuitem_pipe);
+
+	// Search (geany only allows single keybinding to one action)
+	keybindings_set_item(plugin_private.keybinding_group, GEANY_KEYS_GGU_SEARCH, NULL, 0, 0, "ggu_search_dialog", _("[GGU] Seach dialog (add second search keybinding)"), NULL);
 
 	// Restyle sidebar
 	ui_debloat_and_restyle(config);
@@ -629,10 +643,11 @@ void plugin_cleanup(void) {
 		gtk_menu_tool_button_set_menu(plugin_private.toolbar_item_favourites, NULL);
 		gtk_widget_destroy(GTK_WIDGET(plugin_private.toolbar_item_favourites));
 	}
-	if (GTK_IS_WIDGET(plugin_private.menuitem_json_reformat))  { gtk_widget_destroy(plugin_private.menuitem_json_reformat); }
-	if (GTK_IS_WIDGET(plugin_private.menuitem_xml_reformat))   { gtk_widget_destroy(plugin_private.menuitem_xml_reformat); }
-	if (GTK_IS_WIDGET(plugin_private.menu_favorites))          { gtk_widget_destroy(plugin_private.menu_favorites); }
-	if (GTK_IS_WIDGET(plugin_private.menuitem_favourites))     { gtk_widget_destroy(plugin_private.menuitem_favourites); }
+	if (GTK_IS_WIDGET(plugin_private.menu_favorites))        { gtk_widget_destroy(plugin_private.menu_favorites); }
+	if (GTK_IS_WIDGET(plugin_private.menuitem_favourites))   { gtk_widget_destroy(plugin_private.menuitem_favourites); }
+	if (GTK_IS_WIDGET(plugin_private.menuitem_json_pretty))  { gtk_widget_destroy(plugin_private.menuitem_json_pretty); }
+	if (GTK_IS_WIDGET(plugin_private.menuitem_xml_pretty))   { gtk_widget_destroy(plugin_private.menuitem_xml_pretty); }
+	if (GTK_IS_WIDGET(plugin_private.menuitem_pipe))         { gtk_widget_destroy(plugin_private.menuitem_pipe); }
 
 	for (iterator = &(plugin_private.menuitem_list); iterator; iterator = iterator->next) {
 		if (GTK_IS_WIDGET(iterator->data)) { gtk_widget_destroy(iterator->data); }
