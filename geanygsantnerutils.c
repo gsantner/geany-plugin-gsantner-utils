@@ -123,7 +123,7 @@ static void exec_json_pretty() {
 	// Prepare cmd
 	GString *syscmd_gstring = g_string_new("/bin/cat '");
 	g_string_append(syscmd_gstring, tmp_infile);
-	g_string_append(syscmd_gstring, "' | json_reformat > '");
+	g_string_append(syscmd_gstring, "' | ruby -rjson -e \"print JSON.pretty_generate(JSON.parse(ARGF.read))\" > '");
 	g_string_append(syscmd_gstring, tmp_outfile);
 	g_string_append(syscmd_gstring, "'");
 	char *syscmd = g_string_free(syscmd_gstring, FALSE);
@@ -148,10 +148,10 @@ static void exec_json_pretty() {
 		sci_set_current_position(sci, 0, TRUE);
 	} else if (exitc > 256) {
 		msgwin_switch_tab(MSG_MESSAGE, 1);
-		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] json_reformat not installed. Contained in package yajl-tools"), filename);
+		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] JSON pretty error - ruby is not installed."), filename);
 	} else {
 		msgwin_switch_tab(MSG_MESSAGE, 1);
-		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] json_reformat error, code %d. The content seems not to be valid JSON."), filename, exitc);
+		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] JSON pretty error - exit code %d. The content seems not to be valid JSON."), filename, exitc);
 	}
 
 	GeanyFiletype *ft;
