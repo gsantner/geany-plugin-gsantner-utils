@@ -117,14 +117,11 @@ static void exec_json_pretty() {
 	gchar *filename = document_get_basename_for_display(doc, -1);
 
 	// Determine first [/{ and last ]/}, trim leading/trailing text (like logging prefixes)
-	size_t json_start = MIN(strcspn(text, "["), strcspn(text, "{"));
-	size_t json_ende = (size_t) strrchr(text, ']');
-	size_t json_end2 = (size_t) strrchr(text, '}');
-	json_ende = (json_ende == 0 ? INT_MAX : -((size_t)text-json_ende));
-	json_end2 = (json_end2 == 0 ? INT_MAX : -((size_t)text-json_end2));
-	json_start = MAX(json_start, 0);
-	json_ende = MAX(MIN(json_ende, (size_t)strlen(text)), MIN(json_end2, (size_t)strlen(text)));
-
+	gchar *text_reverse = g_utf8_strreverse(text, -1);
+	size_t json_start = MAX(0, MIN(strcspn(text, "["), strcspn(text, "{")));
+	size_t json_end   = strlen(text) - MAX(0, MIN(strcspn(text_reverse, "]"), strcspn(text_reverse, "}")));
+	free(text_reverse);
+	msgwin_status_add("JSON Pretty: json_start=%zd, json_end=%zd, strlen=%zd", json_start, json_end, strlen(text));
 
 	// Temporary filenames
 	char tmp_infile[L_tmpnam];
@@ -133,13 +130,13 @@ static void exec_json_pretty() {
 	// Prepare cmd
 	GString *syscmd_gstring = g_string_new("/bin/cat '");
 	g_string_append(syscmd_gstring, tmp_infile);
-	g_string_append(syscmd_gstring, "' | ruby -rjson -e \"print JSON.pretty_generate(JSON.parse(ARGF.read.strip))\" > '");
+	g_string_append(syscmd_gstring, "' | ruby -rjson -e \"puts JSON.pretty_generate(JSON.parse(ARGF.read.strip))\" > '");
 	g_string_append(syscmd_gstring, tmp_outfile);
 	g_string_append(syscmd_gstring, "'");
 	char *syscmd = g_string_free(syscmd_gstring, FALSE);
 
 	// Run CMD
-	g_file_set_contents(tmp_infile, text+json_start, json_ende-json_start+1, NULL);
+	g_file_set_contents(tmp_infile, text+json_start, json_end-json_start+1, NULL);
 	g_free(text); text=NULL;
 	int exitc = system(syscmd);
 
