@@ -132,10 +132,10 @@ static void exec_json_pretty() {
 
 	// Determine first [/{ and last ]/}, trim leading/trailing text (like logging prefixes)
 	gchar *text_reverse = g_utf8_strreverse(text, -1);
-	size_t json_start = MAX(0, MIN(strcspn(text, "["), strcspn(text, "{")));
-	size_t json_end   = strlen(text) - MAX(0, MIN(strcspn(text_reverse, "]"), strcspn(text_reverse, "}")));
+	size_t offset_begin = MAX(0, MIN(strcspn(text, "["), strcspn(text, "{")));
+	size_t offset_end   = strlen(text) - MAX(0, MIN(strcspn(text_reverse, "]"), strcspn(text_reverse, "}")));
 	free(text_reverse); text_reverse = NULL;
-	msgwin_status_add("JSON Pretty: json_start=%zd, json_end=%zd, strlen=%zd", json_start, json_end, strlen(text));
+	msgwin_status_add("JSON Pretty: offset_begin=%zd, offset_end=%zd, strlen=%zd", offset_begin, offset_end, strlen(text));
 
 	// Prepare & Run cmd
 	gchar *tmp_infile  = gs_glib_tmp_filepath(".", ".json");
@@ -146,7 +146,7 @@ static void exec_json_pretty() {
 	g_string_append(syscmd_gstring, tmp_outfile);
 	g_string_append(syscmd_gstring, "'");
 	char *syscmd = g_string_free(syscmd_gstring, FALSE);
-	g_file_set_contents(tmp_infile, text+json_start, json_end-json_start+1, NULL);
+	g_file_set_contents(tmp_infile, text+offset_begin, offset_end-offset_begin, NULL);
 	int exitc = system(syscmd);
 	gsize length;
 	g_free(text);
@@ -194,6 +194,12 @@ static void exec_xml_pretty() {
 	gchar *text = sci_get_contents(sci, -1);
 	gchar *filename = document_get_basename_for_display(doc, -1);
 
+	// Determine first < and last >
+	gchar *text_reverse = g_utf8_strreverse(text, -1);
+	size_t offset_begin = MAX(0, strcspn(text, "<"));
+	size_t offset_end   = strlen(text) - MAX(0, strcspn(text_reverse, ">"));
+	free(text_reverse); text_reverse = NULL;
+	msgwin_status_add("XML Pretty: offset_begin=%zd, offset_end=%zd, strlen=%zd", offset_begin, offset_end, strlen(text));
 
 	// Prepare & Run cmd
 	gchar *tmp_infile  = gs_glib_tmp_filepath(".", ".xml");
@@ -204,7 +210,7 @@ static void exec_xml_pretty() {
 	g_string_append(syscmd_gstring, tmp_outfile);
 	g_string_append(syscmd_gstring, "'");
 	char *syscmd = g_string_free(syscmd_gstring, FALSE);
-	g_file_set_contents(tmp_infile, text, -1, NULL);
+	g_file_set_contents(tmp_infile, text+offset_begin, offset_end-offset_begin, NULL);
 	int exitc = system(syscmd);
 	gsize length;
 	g_free(text);
