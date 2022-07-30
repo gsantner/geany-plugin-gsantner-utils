@@ -82,6 +82,20 @@ static gchar* gs_glib_strreplace(gchar *text, const gchar *search, const gchar *
 	return text;
 }
 
+// Get filepath to random file/directory in temporary directory
+static char* gs_glib_tmp_filepath(const char* prefix, const char* postfix) {
+	gchar *uuid = g_uuid_string_random();
+	GString *filename = g_string_new(prefix);
+	g_string_append(filename, uuid);
+	g_string_append(filename, postfix);
+	gchar *fn = g_string_free(filename, FALSE);
+	gchar *out = g_build_filename(g_get_tmp_dir(), fn, NULL);
+	free(uuid);
+	free(fn);
+
+	return out;
+}
+
 static gchar *geany_conf_filepath() {
 	return g_build_filename(geany_data->app->configdir, "geany.conf", NULL);
 }
@@ -120,31 +134,26 @@ static void exec_json_pretty() {
 	gchar *text_reverse = g_utf8_strreverse(text, -1);
 	size_t json_start = MAX(0, MIN(strcspn(text, "["), strcspn(text, "{")));
 	size_t json_end   = strlen(text) - MAX(0, MIN(strcspn(text_reverse, "]"), strcspn(text_reverse, "}")));
-	free(text_reverse);
+	free(text_reverse); text_reverse = NULL;
 	msgwin_status_add("JSON Pretty: json_start=%zd, json_end=%zd, strlen=%zd", json_start, json_end, strlen(text));
 
-	// Temporary filenames
-	char tmp_infile[L_tmpnam];
-	close(mkstemp(tmp_infile));
-	char *tmp_outfile = g_string_free(g_string_append(g_string_new(tmp_infile), ".out"), FALSE);
-	// Prepare cmd
+	// Prepare & Run cmd
+	gchar *tmp_infile  = gs_glib_tmp_filepath(".", ".json");
+	gchar *tmp_outfile = gs_glib_tmp_filepath(".", ".json");
 	GString *syscmd_gstring = g_string_new("/bin/cat '");
 	g_string_append(syscmd_gstring, tmp_infile);
 	g_string_append(syscmd_gstring, "' | ruby -rjson -e \"puts JSON.pretty_generate(JSON.parse(ARGF.read.strip))\" > '");
 	g_string_append(syscmd_gstring, tmp_outfile);
 	g_string_append(syscmd_gstring, "'");
 	char *syscmd = g_string_free(syscmd_gstring, FALSE);
-
-	// Run CMD
 	g_file_set_contents(tmp_infile, text+json_start, json_end-json_start+1, NULL);
-	g_free(text); text=NULL;
 	int exitc = system(syscmd);
-
-	// Get results & delete working files
 	gsize length;
+	g_free(text);
 	g_file_get_contents(tmp_outfile, &text, &length, NULL);
-	unlink(tmp_infile);
-	unlink(tmp_outfile);
+	unlink(tmp_infile);  free(tmp_infile);  tmp_infile = NULL;
+	unlink(tmp_outfile); free(tmp_outfile); tmp_outfile = NULL;
+	g_free(syscmd); syscmd=NULL;
 
 	// Evaluate result
 	if (exitc == 0) {
@@ -167,10 +176,8 @@ static void exec_json_pretty() {
 	}
 
 	// Free resources
-	free(text);
-	free(syscmd);
-	free(tmp_outfile);
 	free(filename);
+	free(text);
 }
 
 
@@ -187,29 +194,24 @@ static void exec_xml_pretty() {
 	gchar *text = sci_get_contents(sci, -1);
 	gchar *filename = document_get_basename_for_display(doc, -1);
 
-	// Temporary filenames
-	char tmp_infile[L_tmpnam];
-	close(mkstemp(tmp_infile));
-	char *tmp_outfile = g_string_free(g_string_append(g_string_new(tmp_infile), ".out"), FALSE);
-	// Prepare cmd
+
+	// Prepare & Run cmd
+	gchar *tmp_infile  = gs_glib_tmp_filepath(".", ".xml");
+	gchar *tmp_outfile = gs_glib_tmp_filepath(".", ".xml");
 	GString *syscmd_gstring = g_string_new("/bin/cat '");
 	g_string_append(syscmd_gstring, tmp_infile);
 	g_string_append(syscmd_gstring, "' | tidy -xml -w 105 --indent auto --indent-spaces 2 --quiet yes > '");
 	g_string_append(syscmd_gstring, tmp_outfile);
 	g_string_append(syscmd_gstring, "'");
 	char *syscmd = g_string_free(syscmd_gstring, FALSE);
-
-	// Run CMD
 	g_file_set_contents(tmp_infile, text, -1, NULL);
-	g_free(text); text=NULL;
 	int exitc = system(syscmd);
-
-	// Get results & delete working files
 	gsize length;
+	g_free(text);
 	g_file_get_contents(tmp_outfile, &text, &length, NULL);
-
-	unlink(tmp_infile);
-	unlink(tmp_outfile);
+	unlink(tmp_infile);  free(tmp_infile);  tmp_infile = NULL;
+	unlink(tmp_outfile); free(tmp_outfile); tmp_outfile = NULL;
+	g_free(syscmd); syscmd=NULL;
 
 	// Evaluate result
 	if (exitc == 0) {
@@ -228,8 +230,6 @@ static void exec_xml_pretty() {
 
 	// Free resources
 	free(text);
-	free(syscmd);
-	free(tmp_outfile);
 	free(filename);
 }
 
@@ -251,11 +251,10 @@ static void exec_pipe() {
 	gchar *text = sci_get_contents(sci, -1);
 	gchar *filename = document_get_basename_for_display(doc, -1);
 
-	// Temporary filenames
-	char tmp_infile[L_tmpnam];
-	close(mkstemp(tmp_infile));
-	char *tmp_outfile = g_string_free(g_string_append(g_string_new(tmp_infile), ".out"), FALSE);
-	// Prepare cmd
+
+	// Prepare & Run cmd
+	gchar *tmp_infile  = gs_glib_tmp_filepath(".", ".txt");
+	gchar *tmp_outfile = gs_glib_tmp_filepath(".", ".txt");
 	GString *syscmd_gstring = g_string_new("/bin/cat '");
 	g_string_append(syscmd_gstring, tmp_infile);
 	g_string_append(syscmd_gstring, "' | ");
@@ -264,18 +263,15 @@ static void exec_pipe() {
 	g_string_append(syscmd_gstring, tmp_outfile);
 	g_string_append(syscmd_gstring, "'");
 	char *syscmd = g_string_free(syscmd_gstring, FALSE);
-
-	// Run CMD
 	g_file_set_contents(tmp_infile, text, -1, NULL);
-	g_free(text); text=NULL;
 	int exitc = system(syscmd);
-
-	// Get results & delete working files
 	gsize length;
+	g_free(text);
 	g_file_get_contents(tmp_outfile, &text, &length, NULL);
-
-	unlink(tmp_infile);
-	unlink(tmp_outfile);
+	unlink(tmp_infile);  free(tmp_infile);  tmp_infile = NULL;
+	unlink(tmp_outfile); free(tmp_outfile); tmp_outfile = NULL;
+	g_free(syscmd); syscmd=NULL;
+	g_free(user_input); user_input = NULL;
 
 	// Evaluate result
 	if (exitc == 0) {
@@ -291,10 +287,7 @@ static void exec_pipe() {
 
 	// Free resources
 	free(text);
-	free(syscmd);
-	free(tmp_outfile);
 	free(filename);
-	free(user_input);
 }
 
 //######################################################################################################
