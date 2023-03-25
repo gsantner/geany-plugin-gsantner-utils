@@ -506,7 +506,7 @@ static void ft_use_html_syntax_for_markdown_filesuse_html_syntax_for_markdown_fi
 	if (doc != NULL && doc->file_type != NULL && doc->file_type->extension != NULL && utils_str_equal(doc->file_type->extension, "mdml")) {
 		GeanyFiletype *htmlType;
 		if ((htmlType = filetypes_detect_from_file("f.html")) != NULL) {
-			document_set_filetype(doc, htmlType);
+			//document_set_filetype(doc, htmlType);
 		}
 	}
 }
