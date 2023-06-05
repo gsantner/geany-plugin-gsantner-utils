@@ -3,7 +3,7 @@
 // > geanyplugingsantnerutils: Plugin for Geany editor (https://github.com/geany/geany)
 //
 // Authors:
-//   2019-2022 Gregor Santner, https://gsantner.net/
+//   2019-2023 Gregor Santner, gsantner AT mailbox DOT org
 //
 // License: Public domain / Creative Commons Zero 1.0
 //
@@ -20,7 +20,7 @@
 // vim: sw=4 ts=4 ft=c noexpandtab:
 
 // Includes
-#include "geanyplugin.h"
+#include <geanyplugin.h>
 #include <stdio.h>
 #ifdef HAVE_LOCALE_H
 	#include <locale.h>

@@ -14,12 +14,16 @@ PLUGINDIR_USER="$${HOME}/.config/geany/plugins"
 $(BASENAME).so:	$(BASENAME).o $(OBJS)
 		gcc -shared -o $@ $(LDLIBS) $^
 
-$(BASENAME).o:	$(BASENAME).c
+$(BASENAME).o:	$(BASENAME).c compile_flags.txt
 
 ######################################################################################################
 
 all: clean build install
 rebuild: clean build
+
+
+compile_flags.txt:
+	echo -xc $(CFLAGS) | tr ' ' '\n' > compile_flags.txt
 
 build:
 	@echo "\nBuild..."
@@ -28,7 +32,7 @@ build:
 
 clean:
 	@echo "\nClean..."
-	rm -f *.o *.so
+	rm -f *.o *.so compile_flags.txt
 
 # Install to system
 install-system: build
