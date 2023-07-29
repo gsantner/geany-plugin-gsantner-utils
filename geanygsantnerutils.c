@@ -142,7 +142,7 @@ static void exec_json_pretty() {
 	gchar *tmp_outfile = gs_glib_tmp_filepath(".", ".json");
 	GString *syscmd_gstring = g_string_new("/bin/cat '");
 	g_string_append(syscmd_gstring, tmp_infile);
-	g_string_append(syscmd_gstring, "' | ruby -rjson -e \"puts JSON.pretty_generate(JSON.parse(ARGF.read.strip))\" > '");
+	g_string_append(syscmd_gstring, "' | python3 -m json.tool --indent=2 > '");
 	g_string_append(syscmd_gstring, tmp_outfile);
 	g_string_append(syscmd_gstring, "'");
 	char *syscmd = g_string_free(syscmd_gstring, FALSE);
@@ -164,7 +164,7 @@ static void exec_json_pretty() {
 		sci_set_current_position(sci, 0, TRUE);
 	} else if (exitc > 256) {
 		msgwin_switch_tab(MSG_MESSAGE, 1);
-		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] JSON pretty error - ruby is not installed."), filename);
+		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] JSON pretty error - python3 is not installed."), filename);
 	} else {
 		msgwin_switch_tab(MSG_MESSAGE, 1);
 		msgwin_msg_add(COLOR_RED, -1, doc, _("[%s] JSON pretty error - exit code %d. The content seems not to be valid JSON."), filename, exitc);
